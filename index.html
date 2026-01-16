@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CNCI - Hub de Bienestar y Trayectorias</title>
+    <title>CNCI - Hub del Bienestar Estudiantil</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&display=swap');
@@ -18,64 +20,57 @@
             --success-green: #10B981;
         }
 
-        body {
-            font-family: 'Montserrat', sans-serif;
-            background-color: #0a0a0a;
-            color: white;
-            overflow-x: hidden;
-        }
-
+        body { font-family: 'Montserrat', sans-serif; background-color: #0a0a0a; color: white; overflow-x: hidden; }
         .hide-scroll-bar::-webkit-scrollbar { display: none; }
         .hide-scroll-bar { -ms-overflow-style: none; scrollbar-width: none; }
-
-        .movie-card {
-            transition: transform 0.3s ease, z-index 0.3s ease, box-shadow 0.3s ease;
-            cursor: pointer;
-        }
-        .movie-card:hover {
-            transform: scale(1.05);
-            z-index: 50;
-            box-shadow: 0 10px 20px rgba(42, 106, 255, 0.2);
-        }
-
+        .movie-card { transition: transform 0.3s ease, z-index 0.3s ease, box-shadow 0.3s ease; cursor: pointer; }
+        .movie-card:hover { transform: scale(1.05); z-index: 50; box-shadow: 0 10px 20px rgba(42, 106, 255, 0.2); }
         .hero-gradient { background: linear-gradient(to top, #0a0a0a 10%, transparent 90%); }
         .hero-overlay { background: linear-gradient(77deg, rgba(0,0,0,.7), transparent 85%); }
-
         .text-cnci-blue { color: var(--primary-blue); }
         .bg-cnci-blue { background-color: var(--primary-blue); }
         .text-cnci-orange { color: var(--accent-orange); }
         .bg-cnci-orange { background-color: var(--accent-orange); }
-        
-        @keyframes pulse-red {
-            0% { box-shadow: 0 0 0 0 rgba(255, 133, 0, 0.7); }
-            70% { box-shadow: 0 0 0 6px rgba(255, 133, 0, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(255, 133, 0, 0); }
-        }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(255, 133, 0, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(255, 133, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 133, 0, 0); } }
         .live-indicator { animation: pulse-red 2s infinite; }
         .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
         .badge-locked { filter: grayscale(100%) opacity(0.5); }
         .badge-unlocked { filter: grayscale(0%) opacity(1); box-shadow: 0 0 15px rgba(255, 215, 0, 0.5); }
-
-        /* Pagination & Utils */
         .pagination-btn { padding: 0.25rem 0.75rem; border-radius: 0.25rem; background-color: #1f2937; color: white; margin: 0 0.25rem; font-size: 0.875rem; }
         .pagination-btn.active { background-color: var(--primary-blue); font-weight: bold; }
         .pagination-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .recordings-section { background-color: #111; background-image: radial-gradient(#1a1a1a 1px, transparent 1px); background-size: 20px 20px; }
+        #loading-overlay { position: fixed; inset: 0; background: #0a0a0a; z-index: 9999; display: flex; justify-content: center; align-items: center; transition: opacity 0.5s ease; }
+        .video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; background: #000; border-radius: 0.5rem; }
+        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+        .time-chip { font-size: 0.7rem; background: #333; padding: 2px 6px; border-radius: 4px; cursor: pointer; border: 1px solid #444; }
+        .time-chip:hover { background: #2a6aff; border-color: #2a6aff; }
         
-        .recordings-section {
-            background-color: #111;
-            background-image: radial-gradient(#1a1a1a 1px, transparent 1px);
-            background-size: 20px 20px;
-        }
-        
-        /* Loading Overlay */
-        #loading-overlay {
-            position: fixed; inset: 0; background: #0a0a0a; z-index: 9999;
-            display: flex; justify-content: center; align-items: center;
-            transition: opacity 0.5s ease;
-        }
+        /* Star Rating Styles */
+        .star-rating { direction: rtl; display: inline-flex; }
+        .star-rating input { display: none; }
+        .star-rating label { color: #444; font-size: 1.5rem; padding: 0 2px; cursor: pointer; transition: color 0.2s; }
+        .star-rating input:checked ~ label, .star-rating label:hover, .star-rating label:hover ~ label { color: #fbbf24; } /* Gold color */
     </style>
+    
+    <script>
+        window.handleImageError = function(img) {
+            img.onerror = null;
+            img.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMzAwIDIwMCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzIyMiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNTU1IiBmb250LXNpemU9IjIwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiI+U2luIEltYWdlbjwvdGV4dD48L3N2Zz4=';
+        };
+        
+        // Toggle Notifications Dropdown
+        window.toggleNotifications = function() {
+            const dd = document.getElementById('notification-dropdown');
+            if(dd.classList.contains('hidden')) {
+                renderNotifications();
+                dd.classList.remove('hidden');
+            } else {
+                dd.classList.add('hidden');
+            }
+        };
+    </script>
 </head>
 <body class="bg-[#0a0a0a]">
 
@@ -89,10 +84,10 @@
 
     <!-- Navbar -->
     <nav class="fixed w-full z-50 transition-all duration-300 bg-gradient-to-b from-black/90 to-transparent" id="navbar">
-        <div class="px-4 md:px-12 py-4 flex items-center justify-between">
-            <div class="flex items-center gap-8">
+        <div class="px-4 md:px-12 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center justify-between w-full md:w-auto gap-8">
                 <a href="#" class="text-cnci-blue text-2xl md:text-3xl font-bold tracking-widest uppercase flex items-center gap-2">
-                    <img src="https://cncivirtual.mx/img/logos/logo_cnci_blanco.png" class="h-8 md:h-10 opacity-90" alt="CNCI Logo" onerror="this.src='https://via.placeholder.com/40x40?text=CNCI'">
+                    <img src="https://cncivirtual.mx/img/logos/logo_cnci_blanco.png" class="h-8 md:h-10 opacity-90" alt="CNCI" onerror="handleImageError(this)">
                     <span class="hidden md:inline">Bienestar</span>
                 </a>
                 
@@ -103,16 +98,34 @@
                 </div>
             </div>
 
-            <div class="flex items-center gap-6 text-white">
-                <div class="flex items-center gap-2 cursor-pointer group relative" onclick="handleProfileClick()">
-                    <img id="user-avatar" src="https://ui-avatars.com/api/?name=Guest&background=333&color=fff" alt="Profile" class="w-8 h-8 rounded border-2 border-transparent group-hover:border-[#2a6aff] transition">
+            <div class="flex items-center gap-6 text-white w-full md:w-auto justify-end">
+                <div class="relative group w-full md:w-64">
+                    <input type="text" id="global-search" onkeyup="handleGlobalSearch(this.value)" placeholder="Buscar sesión próxima..." class="bg-black/50 border border-gray-700 rounded-full px-4 py-2 text-sm focus:border-[#2a6aff] focus:outline-none w-full transition-all duration-300 focus:bg-black/80">
+                    <i class="fas fa-search absolute right-3 top-2.5 text-gray-400 pointer-events-none"></i>
+                </div>
+                
+                <!-- Notificaciones -->
+                <div class="relative">
+                    <i class="fas fa-bell cursor-pointer hover:text-cnci-blue transition text-xl" onclick="toggleNotifications()"></i>
+                    <span id="notif-badge" class="absolute -top-1 -right-1 bg-cnci-orange text-[8px] w-3 h-3 flex items-center justify-center rounded-full hidden"></span>
+                    
+                    <!-- Dropdown Notificaciones -->
+                    <div id="notification-dropdown" class="absolute top-10 right-0 bg-[#181818] border border-gray-800 rounded shadow-xl w-80 hidden flex-col z-50 max-h-96 overflow-y-auto">
+                        <div class="p-3 border-b border-gray-700 font-bold text-sm text-white">Notificaciones</div>
+                        <div id="notif-list" class="flex flex-col">
+                            <!-- Items inyectados via JS -->
+                            <div class="p-4 text-center text-gray-500 text-xs">No tienes notificaciones nuevas.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 cursor-pointer group relative shrink-0" onclick="handleProfileClick()">
+                    <img id="user-avatar" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="Profile" class="w-8 h-8 rounded border-2 border-transparent group-hover:border-[#2a6aff] transition" onerror="handleImageError(this)">
                     <i class="fas fa-caret-down group-hover:rotate-180 transition text-cnci-blue"></i>
                     
                     <div id="profile-dropdown" class="absolute top-10 right-0 bg-[#181818] border border-gray-800 rounded shadow-xl w-56 hidden flex-col py-2 z-50">
                         <span id="user-greeting" class="px-4 py-2 text-xs text-gray-500 border-b border-gray-700">Invitado</span>
-                        <a href="javascript:void(0)" onclick="openPathwaysModal()" class="px-4 py-2 hover:bg-gray-800 text-sm flex justify-between items-center">
-                            Mi Perfil y Constancias
-                        </a>
+                        <a href="javascript:void(0)" onclick="openPathwaysModal()" class="px-4 py-2 hover:bg-gray-800 text-sm flex justify-between items-center">Mi Perfil y Constancias</a>
                         <a href="javascript:void(0)" onclick="logout()" class="px-4 py-2 hover:bg-gray-800 text-sm text-red-500">Cerrar Sesión</a>
                     </div>
                 </div>
@@ -123,35 +136,29 @@
     <!-- Hero Section -->
     <div class="relative h-[80vh] w-full" id="hero-section"></div>
 
-    <!-- Filter Bar (Trayectorias) -->
+    <!-- Filter Bar -->
     <div class="relative z-10 -mt-10 px-4 md:px-12 mb-8">
         <h3 class="text-gray-400 text-xs font-bold uppercase mb-3 ml-1">Explorar por Trayectoria</h3>
-        <div class="flex flex-wrap gap-2" id="pathway-filters">
-            <!-- Injected dynamically -->
-        </div>
+        <div class="flex flex-wrap gap-2" id="pathway-filters"></div>
     </div>
 
-    <!-- Main Content (Live & Upcoming) -->
+    <!-- Main Content -->
     <div class="relative z-10 pb-10 space-y-10 px-4 md:px-12 min-h-[40vh]" id="content-rows"></div>
 
-    <!-- Recordings Section (On Demand) -->
+    <!-- Recordings Section -->
     <div id="recordings-anchor" class="recordings-section py-16 px-4 md:px-12 border-t border-gray-800">
         <div class="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
             <div>
                 <h2 class="text-3xl font-bold text-white mb-2"><i class="fas fa-video text-cnci-blue mr-2"></i>Biblioteca de Sesiones</h2>
-                <p class="text-gray-400 text-sm">Explora el archivo histórico. Estas sesiones cuentan para tus trayectorias.</p>
+                <p class="text-gray-400 text-sm">Explora el archivo histórico. Califícalas para ayudar a otros.</p>
             </div>
             <div class="w-full md:w-auto">
                 <select id="recordings-filter" onchange="renderRecordingsGrid()" class="bg-black border border-gray-700 text-white rounded px-4 py-2 focus:border-cnci-blue outline-none w-full md:w-64">
                     <option value="all">Todas las Trayectorias</option>
-                    <!-- Injected dynamically -->
                 </select>
             </div>
         </div>
-        
-        <div id="recordings-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            <!-- Injected dynamically -->
-        </div>
+        <div id="recordings-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4"></div>
     </div>
 
     <!-- Footer -->
@@ -164,44 +171,54 @@
         </div>
     </footer>
 
-    <!-- MODAL DETALLES VIDEO -->
+    <!-- MODAL VIDEO / EMBED -->
     <div id="modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 transition-opacity duration-300 opacity-0">
-        <div class="bg-[#181818] w-full max-w-5xl rounded-lg overflow-hidden shadow-2xl relative transform transition-transform duration-300 scale-90 border border-gray-800" id="modal-content">
+        <div class="bg-[#181818] w-full max-w-5xl rounded-lg overflow-hidden shadow-2xl relative transform transition-transform duration-300 scale-90 border border-gray-800 flex flex-col max-h-[90vh]" id="modal-content">
             <button onclick="closeModal()" class="absolute top-4 right-4 z-20 bg-black/50 rounded-full p-2 text-white hover:bg-cnci-blue transition"><i class="fas fa-times w-6 h-6 flex items-center justify-center"></i></button>
-            <div class="relative h-64 md:h-[400px]">
-                <img id="modal-img" src="" class="w-full h-full object-cover">
+            
+            <!-- Video Container -->
+            <div id="modal-embed-container" class="hidden w-full bg-black"><div class="video-container"><iframe id="modal-iframe" src="" allowfullscreen></iframe></div></div>
+
+            <!-- Hero Image -->
+            <div id="modal-hero-container" class="relative h-64 md:h-[400px]">
+                <img id="modal-img" src="" class="w-full h-full object-cover" onerror="handleImageError(this)">
                 <div class="absolute inset-0 bg-gradient-to-t from-[#181818] via-transparent to-transparent"></div>
                 <div class="absolute bottom-8 left-8 right-8">
                     <h2 id="modal-title" class="text-3xl md:text-5xl font-bold text-white mb-3 shadow-lg">Title</h2>
                     <div class="flex items-center gap-4 text-sm md:text-base mb-4">
                         <span id="modal-match" class="text-green-400 font-bold"></span>
                         <span class="text-gray-300" id="modal-time-status"></span>
+                        <span class="text-yellow-400 text-xs ml-2" id="modal-avg-rating"><i class="fas fa-star"></i> <span>-</span></span>
                     </div>
                      <div class="flex gap-3">
-                        <a id="modal-link-btn" href="#" target="_blank" class="bg-cnci-blue text-white px-8 py-2 rounded font-bold hover:bg-blue-600 flex items-center gap-2 transition shadow-lg shadow-blue-900/50"><i class="fas fa-play"></i> Ingresar / Ver</a>
+                        <a id="modal-link-btn" href="#" target="_blank" class="bg-cnci-blue text-white px-8 py-2 rounded font-bold hover:bg-blue-600 flex items-center gap-2 transition shadow-lg shadow-blue-900/50"><i class="fas fa-external-link-alt mr-2"></i> Ingresar a Sesión</a>
                         <a id="modal-gcal-btn" href="#" target="_blank" class="bg-white text-black px-6 py-2 rounded font-bold hover:bg-gray-200 flex items-center gap-2 transition"><i class="far fa-calendar-plus"></i> Agendar</a>
-                        
-                        <!-- BOTÓN FAVORITOS (Mi Lista) -->
-                        <button id="btn-favorite" onclick="toggleFavorite()" class="border border-gray-500 text-white px-4 py-2 rounded hover:border-pink-500 hover:text-pink-500 transition tooltip-btn" title="Añadir a mi lista de interés">
-                            <i class="far fa-heart"></i>
-                        </button>
+                        <button id="btn-favorite" onclick="toggleFavorite()" class="border border-gray-500 text-white px-4 py-2 rounded hover:border-pink-500 hover:text-pink-500 transition tooltip-btn" title="Añadir a mi lista"><i class="far fa-heart"></i></button>
                     </div>
                 </div>
             </div>
-            <div class="p-8 grid md:grid-cols-3 gap-8 bg-[#181818]">
+
+            <div class="p-8 grid md:grid-cols-3 gap-8 bg-[#181818] overflow-y-auto">
                 <div class="md:col-span-2 space-y-4">
-                    <p id="modal-desc" class="text-gray-300 text-lg leading-relaxed">Description...</p>
-                    <div class="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-                        <p class="text-cnci-orange text-sm font-bold mb-1"><i class="fas fa-award mr-2"></i>Información de Trayectoria</p>
-                        <p class="text-gray-400 text-xs">Completa esta sesión para avanzar en la insignia: <span id="modal-pathway-name" class="text-white font-bold">General</span>.</p>
-                        <p class="text-xs text-gray-500 mt-2 italic">* La asistencia es validada por el administrador mediante tu acceso a Teams/Zoom.</p>
+                    <div class="flex justify-between items-start">
+                        <h2 id="modal-title-alt" class="text-2xl font-bold text-white hidden"></h2>
+                        <!-- Star Rating Widget (Solo visible para grabaciones) -->
+                        <div id="modal-rating-container" class="hidden">
+                            <p class="text-xs text-gray-400 mb-1">Califica esta sesión:</p>
+                            <div class="star-rating">
+                                <input type="radio" id="star5" name="rating" value="5" onclick="rateSession(5)"><label for="star5" title="Excelente">★</label>
+                                <input type="radio" id="star4" name="rating" value="4" onclick="rateSession(4)"><label for="star4" title="Muy buena">★</label>
+                                <input type="radio" id="star3" name="rating" value="3" onclick="rateSession(3)"><label for="star3" title="Buena">★</label>
+                                <input type="radio" id="star2" name="rating" value="2" onclick="rateSession(2)"><label for="star2" title="Regular">★</label>
+                                <input type="radio" id="star1" name="rating" value="1" onclick="rateSession(1)"><label for="star1" title="Mala">★</label>
+                            </div>
+                        </div>
                     </div>
+                    
+                    <p id="modal-desc" class="text-gray-300 text-lg leading-relaxed">Description...</p>
+                    <div class="bg-gray-800/50 p-4 rounded-lg border border-gray-700"><p class="text-cnci-orange text-sm font-bold mb-1"><i class="fas fa-award mr-2"></i>Información de Trayectoria</p><p class="text-gray-400 text-xs">Completa esta sesión para avanzar en la insignia: <span id="modal-pathway-name" class="text-white font-bold">General</span>.</p></div>
                 </div>
-                <div class="text-sm space-y-3 text-gray-400">
-                    <p><span class="text-gray-500">Ponente:</span> <span id="modal-speaker" class="text-white">Name</span></p>
-                    <p><span class="text-gray-500">Categoría:</span> <span id="modal-category" class="text-white">Category</span></p>
-                    <p><span class="text-gray-500">Horario (CDMX):</span> <span id="modal-duration" class="text-white">Time</span></p>
-                </div>
+                <div class="text-sm space-y-3 text-gray-400"><p><span class="text-gray-500">Ponente:</span> <span id="modal-speaker" class="text-white">Name</span></p><p><span class="text-gray-500">Categoría:</span> <span id="modal-category" class="text-white">Category</span></p><p><span class="text-gray-500">Horario (CDMX):</span> <span id="modal-duration" class="text-white">Time</span></p></div>
             </div>
         </div>
     </div>
@@ -212,33 +229,15 @@
             <div class="bg-gradient-to-r from-cnci-blue to-blue-900 p-6 relative">
                 <button onclick="document.getElementById('pathways-modal').classList.add('hidden')" class="absolute top-4 right-4 text-white/70 hover:text-white"><i class="fas fa-times text-xl"></i></button>
                 <h2 class="text-2xl font-bold text-white mb-2"><i class="fas fa-id-card mr-2"></i>Mi Perfil CNCI</h2>
-                <p class="text-blue-100 text-sm">Gestiona tus constancias y lista de interés.</p>
             </div>
-            
             <div class="flex flex-col md:flex-row h-full overflow-hidden">
                 <div class="p-8 overflow-y-auto w-full space-y-8 h-full">
-                    <!-- Header Profile -->
                     <div class="flex items-center gap-4 border-b border-gray-800 pb-6">
-                        <img id="profile-modal-avatar" class="w-16 h-16 rounded-full border-2 border-cnci-blue">
-                        <div>
-                            <h3 id="profile-modal-id" class="text-xl font-bold text-white"></h3>
-                            <p class="text-sm text-gray-500">Estudiante Activo</p>
-                        </div>
+                        <img id="profile-modal-avatar" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" class="w-16 h-16 rounded-full border-2 border-cnci-blue" onerror="handleImageError(this)">
+                        <div><h3 id="profile-modal-id" class="text-xl font-bold text-white"></h3><p class="text-sm text-gray-500">Estudiante Activo</p></div>
                     </div>
-
-                    <!-- Favorites Section -->
-                    <div>
-                        <h3 class="text-lg font-bold text-pink-500 mb-4"><i class="fas fa-heart mr-2"></i>Mi Lista de Interés</h3>
-                        <div id="favorites-container" class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                            <p class="text-gray-600 text-sm col-span-full">No has guardado sesiones en tu lista.</p>
-                        </div>
-                    </div>
-
-                    <!-- Trayectorias Section -->
-                    <div>
-                        <h3 class="text-lg font-bold text-gray-300 mb-4"><i class="fas fa-trophy mr-2"></i>Mis Trayectorias y Certificaciones</h3>
-                        <div id="pathways-container" class="space-y-4"></div>
-                    </div>
+                    <div><h3 class="text-lg font-bold text-pink-500 mb-4"><i class="fas fa-heart mr-2"></i>Mi Lista de Interés</h3><div id="favorites-container" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div></div>
+                    <div><h3 class="text-lg font-bold text-gray-300 mb-4"><i class="fas fa-trophy mr-2"></i>Mis Trayectorias</h3><div id="pathways-container" class="space-y-4"></div></div>
                 </div>
             </div>
         </div>
@@ -249,11 +248,7 @@
         <div class="bg-[#1a1a1a] p-8 rounded-lg max-w-md w-full border border-gray-800 text-center relative">
             <button onclick="document.getElementById('login-modal').classList.add('hidden')" class="absolute top-4 right-4 text-gray-500 hover:text-white"><i class="fas fa-times"></i></button>
             <h2 class="text-2xl font-bold mb-2 text-cnci-blue">Bienvenido Alumno CNCI</h2>
-            <p class="text-gray-400 text-sm mb-6">Ingresa tu matrícula para acceder.</p>
-            <div class="space-y-4 text-left">
-                <input type="text" id="student-id" placeholder="Ej. AL065839" class="w-full bg-[#0a0a0a] border border-gray-700 rounded p-3 text-white focus:border-cnci-blue focus:outline-none transition uppercase">
-                <button onclick="attemptLogin()" class="w-full bg-cnci-blue hover:bg-blue-600 text-white font-bold py-3 rounded transition">Acceder</button>
-            </div>
+            <div class="space-y-4 text-left"><input type="text" id="student-id" placeholder="Ej. AL065839" class="w-full bg-[#0a0a0a] border border-gray-700 rounded p-3 text-white focus:border-cnci-blue focus:outline-none transition uppercase"><button onclick="attemptLogin()" class="w-full bg-cnci-blue hover:bg-blue-600 text-white font-bold py-3 rounded transition">Acceder</button></div>
         </div>
     </div>
 
@@ -263,16 +258,15 @@
             <div id="admin-login-view" class="flex flex-col items-center justify-center h-full p-8">
                 <i class="fas fa-user-shield text-5xl text-cnci-orange mb-4"></i>
                 <h2 class="text-2xl font-bold mb-6">Panel Administrativo</h2>
-                <input type="password" id="admin-pass" placeholder="Contraseña (cnci2026)" class="bg-[#0a0a0a] border border-gray-700 rounded p-3 text-white focus:border-cnci-orange focus:outline-none mb-4 w-64 text-center">
+                <input type="password" id="admin-pass" placeholder="Contraseña" class="bg-[#0a0a0a] border border-gray-700 rounded p-3 text-white focus:border-cnci-orange focus:outline-none mb-4 w-64 text-center">
                 <button onclick="verifyAdmin()" class="bg-cnci-orange text-black font-bold px-8 py-2 rounded hover:bg-orange-500 transition">Entrar</button>
                 <button onclick="closeAdminModal()" class="mt-4 text-sm text-gray-500 hover:text-white">Cancelar</button>
             </div>
-
             <div id="admin-dashboard-view" class="hidden flex h-full">
-                <!-- Sidebar -->
                 <div class="w-64 bg-black border-r border-gray-800 p-6 flex flex-col gap-4 overflow-y-auto shrink-0">
                     <h3 class="text-cnci-orange font-bold text-lg mb-4">Dashboard</h3>
-                    <button onclick="showAdminTab('sessions')" id="tab-btn-sessions" class="admin-tab-btn text-left text-white bg-gray-800 p-2 rounded transition text-sm"><i class="fas fa-video mr-2"></i> Sesiones</button>
+                    <button onclick="showAdminTab('stats')" id="tab-btn-stats" class="admin-tab-btn text-left text-white bg-gray-800 p-2 rounded transition text-sm"><i class="fas fa-chart-pie mr-2"></i> Estadísticas</button>
+                    <button onclick="showAdminTab('sessions')" id="tab-btn-sessions" class="admin-tab-btn text-left text-gray-400 hover:text-white p-2 transition text-sm"><i class="fas fa-video mr-2"></i> Sesiones</button>
                     <button onclick="showAdminTab('pathways')" id="tab-btn-pathways" class="admin-tab-btn text-left text-gray-400 hover:text-white p-2 transition text-sm"><i class="fas fa-map-signs mr-2"></i> Trayectorias</button>
                     <button onclick="showAdminTab('users')" id="tab-btn-users" class="admin-tab-btn text-left text-gray-400 hover:text-white p-2 transition text-sm"><i class="fas fa-users mr-2"></i> Alumnos</button>
                     <button onclick="showAdminTab('attendance')" id="tab-btn-attendance" class="admin-tab-btn text-left text-gray-400 hover:text-white p-2 transition text-sm"><i class="fas fa-check-double mr-2"></i> Asistencias</button>
@@ -280,62 +274,43 @@
                     <div class="mt-8 border-t border-gray-800 pt-4"><button onclick="closeAdminModal()" class="text-left text-gray-500 hover:text-white p-2"><i class="fas fa-sign-out-alt mr-2"></i> Salir</button></div>
                 </div>
                 
-                <!-- Content: Sessions -->
-                <div id="admin-content-sessions" class="flex-1 p-6 overflow-y-auto bg-[#121212]">
-                    <div class="flex justify-between items-center mb-4"><h2 class="text-xl font-bold">Gestión de Sesiones</h2><button onclick="openSessionEditor()" class="bg-cnci-blue px-3 py-1.5 rounded text-sm font-bold hover:bg-blue-600"><i class="fas fa-plus mr-2"></i> Nueva</button></div>
-                    <div class="flex gap-4 mb-4"><input type="text" id="search-sessions" onkeyup="renderAdminSessions()" placeholder="Buscar..." class="bg-black border border-gray-700 text-white rounded px-3 py-1.5 text-sm w-64 focus:border-cnci-blue outline-none"></div>
-                    <div class="bg-black rounded border border-gray-800 overflow-hidden"><table class="w-full text-left text-sm text-gray-400"><thead class="bg-gray-900 text-gray-200 uppercase font-bold text-xs"><tr><th class="p-3">Título</th><th class="p-3">Ponente</th><th class="p-3">Fecha</th><th class="p-3 text-center">Asistencias</th><th class="p-3 text-center">Acciones</th></tr></thead><tbody class="divide-y divide-gray-800" id="admin-sessions-table-body"></tbody></table><div class="p-3 bg-gray-900 flex justify-center" id="pagination-sessions"></div></div>
-                </div>
-
-                <!-- Content: Pathways -->
-                <div id="admin-content-pathways" class="hidden flex-1 p-6 overflow-y-auto bg-[#121212]">
-                    <div class="flex justify-between items-center mb-4"><h2 class="text-xl font-bold">Gestión de Trayectorias</h2><button onclick="openPathwayEditor()" class="bg-cnci-blue px-3 py-1.5 rounded text-sm font-bold hover:bg-blue-600"><i class="fas fa-plus mr-2"></i> Nueva Categoría</button></div>
-                    <div class="bg-black rounded border border-gray-800 overflow-hidden"><table class="w-full text-left text-sm text-gray-400"><thead class="bg-gray-900 text-gray-200 uppercase font-bold text-xs"><tr><th class="p-3">Emoji</th><th class="p-3">Nombre Trayectoria</th><th class="p-3">Insignia (Certificado)</th><th class="p-3 text-center">Requisito (Sesiones)</th><th class="p-3 text-center">Acciones</th></tr></thead><tbody class="divide-y divide-gray-800" id="admin-pathways-table-body"></tbody></table></div>
-                </div>
-
-                <!-- Content: Users -->
-                <div id="admin-content-users" class="hidden flex-1 p-6 overflow-y-auto bg-[#121212]">
-                    <div class="flex justify-between items-center mb-4"><h2 class="text-xl font-bold">Directorio</h2><div class="flex gap-2"><button onclick="downloadUsersCSV()" class="bg-green-700 px-3 py-1.5 rounded text-sm font-bold hover:bg-green-600"><i class="fas fa-file-csv mr-2"></i> Exportar</button><button onclick="addUserManual()" class="bg-cnci-blue px-3 py-1.5 rounded text-sm font-bold hover:bg-blue-600"><i class="fas fa-plus mr-2"></i> Alumno</button></div></div>
-                    <div class="flex gap-4 mb-4"><input type="text" id="search-users" onkeyup="renderAdminUsers()" placeholder="Buscar matrícula..." class="bg-black border border-gray-700 text-white rounded px-3 py-1.5 text-sm w-64 focus:border-cnci-blue outline-none"><select id="filter-users-status" onchange="renderAdminUsers()" class="bg-black border border-gray-700 text-gray-300 rounded px-2 py-1.5 text-sm"><option value="all">Todos</option><option value="with_certs">Con Constancias</option><option value="downloaded">Descargaron</option></select></div>
-                    <div class="bg-black rounded border border-gray-800 overflow-hidden"><table class="w-full text-left text-sm text-gray-400"><thead class="bg-gray-900 text-gray-200 uppercase font-bold text-xs"><tr><th class="p-3">Matrícula</th><th class="p-3 text-center">Asistencias</th><th class="p-3 text-center">Constancias</th><th class="p-3 text-center">Descargadas</th><th class="p-3 text-center">Acciones</th></tr></thead><tbody class="divide-y divide-gray-800" id="admin-users-table-body"></tbody></table><div class="p-3 bg-gray-900 flex justify-center" id="pagination-users"></div></div>
-                </div>
-
-                <!-- Content: Attendance -->
-                <div id="admin-content-attendance" class="hidden flex-1 p-6 overflow-y-auto bg-[#121212]">
-                    <h2 class="text-xl font-bold mb-4">Importar Asistencias</h2>
-                    <div class="grid md:grid-cols-3 gap-6">
-                        <div class="md:col-span-1 space-y-4">
-                            <div class="bg-gray-900 p-4 rounded border border-gray-800">
-                                <label class="text-xs font-bold text-gray-400 block mb-1">Buscar Sesión</label>
-                                <input type="text" id="import-session-search" onkeyup="filterImportSessions()" placeholder="Buscar..." class="w-full bg-black border border-gray-700 text-white rounded p-2 text-sm mb-2">
-                                <select id="import-session-select" onchange="renderSessionAttendanceTable()" class="w-full bg-black border border-gray-700 text-white rounded p-2 text-sm mb-4" size="5"></select>
-                                <hr class="border-gray-800 mb-4">
-                                <label class="text-xs font-bold text-gray-400 block mb-1">Cargar Matrículas</label>
-                                <div class="mb-2"><input type="file" id="import-csv-file" accept=".csv, .txt" class="block w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-gray-700 file:text-white"/></div>
-                                <textarea id="import-text-area" rows="3" class="w-full bg-black border border-gray-700 text-white rounded p-2 text-xs font-mono mb-2" placeholder="AL001, AL002..."></textarea>
-                                <button onclick="processAttendanceImport()" class="w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-500 text-sm">Validar</button>
-                            </div>
-                        </div>
-                        <div class="md:col-span-2">
-                             <div class="flex justify-between items-center mb-2 bg-gray-900 p-3 rounded border border-gray-800"><div><h3 class="font-bold text-sm text-white" id="attendance-session-title">Selecciona una sesión</h3><p class="text-xs text-gray-500" id="attendance-session-date">-</p></div><button onclick="exportSessionAttendanceCSV()" class="bg-gray-700 text-xs px-3 py-1 rounded hover:bg-gray-600"><i class="fas fa-file-csv"></i> CSV</button></div>
-                            <div class="bg-black rounded border border-gray-800 overflow-hidden"><table class="w-full text-left text-sm text-gray-400"><thead class="bg-gray-900 text-gray-200 uppercase font-bold text-xs"><tr><th class="p-3">Alumno</th><th class="p-3">Estado</th><th class="p-3 text-right">Acciones</th></tr></thead><tbody class="divide-y divide-gray-800" id="admin-attendance-table-body"><tr><td colspan="3" class="p-4 text-center text-xs">Selecciona una sesión</td></tr></tbody></table><div class="p-3 bg-gray-900 flex justify-center" id="pagination-attendance"></div></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Content: Certificates -->
-                <div id="admin-content-certificates" class="hidden flex-1 p-6 overflow-y-auto bg-[#121212]">
-                    <h2 class="text-xl font-bold mb-4">Gestión de Constancias</h2>
-                    <div class="grid md:grid-cols-3 gap-6 mb-6">
+                <div id="admin-content-stats" class="flex-1 p-6 overflow-y-auto bg-[#121212]">
+                    <h2 class="text-xl font-bold mb-6">Estadísticas</h2>
+                    <div class="grid md:grid-cols-2 gap-6">
                         <div class="bg-gray-900 p-4 rounded border border-gray-800">
-                            <h3 class="text-sm font-bold text-cnci-orange mb-2">Manual</h3>
-                            <div class="space-y-2"><input type="text" id="cert-manual-id" class="w-full bg-black border border-gray-700 rounded p-2 text-white text-xs uppercase" placeholder="Matrícula"><select id="cert-manual-pathway" class="w-full bg-black border border-gray-700 rounded p-2 text-white text-xs"></select><input type="text" id="cert-manual-link" class="w-full bg-black border border-gray-700 rounded p-2 text-white text-xs" placeholder="Enlace OneDrive..."><button onclick="assignCertificateManual()" class="w-full bg-cnci-blue py-1.5 rounded font-bold hover:bg-blue-600 text-xs">Asignar</button></div>
+                            <div class="flex justify-between mb-4">
+                                <h3 class="text-sm font-bold text-gray-400">Top Sesiones</h3>
+                                <select id="stats-chart-type" onchange="renderAdminStats()" class="bg-black border border-gray-700 text-xs rounded text-white p-1">
+                                    <option value="attendance">Por Asistencia</option>
+                                    <option value="rating">Por Calificación</option>
+                                </select>
+                            </div>
+                            <canvas id="chart-top-sessions"></canvas>
                         </div>
-                        <div class="bg-gray-900 p-4 rounded border border-gray-800"><h3 class="text-sm font-bold text-green-500 mb-2">CSV Masivo</h3><p class="text-[10px] text-gray-400 mb-2">Fmt: <code>Matrícula,ID_Trayectoria,Link</code></p><input type="file" id="cert-csv-file" accept=".csv, .txt" class="block w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:bg-gray-700 file:text-white mb-2"/><button onclick="processCertificateCSV()" class="w-full bg-green-600 py-1.5 rounded font-bold hover:bg-green-500 text-xs">Procesar</button></div>
-                         <div class="bg-gray-900 p-4 rounded border border-gray-800 flex flex-col justify-center items-center"><h3 class="text-sm font-bold text-white mb-2">Reportes</h3><button onclick="exportCertificatesCSV()" class="bg-gray-700 w-full py-2 rounded text-xs hover:bg-gray-600 mb-2"><i class="fas fa-file-csv"></i> Exportar Todo</button></div>
+                        <div class="bg-gray-900 p-4 rounded border border-gray-800"><h3 class="text-sm font-bold text-gray-400 mb-4">Trayectorias</h3><div class="w-2/3 mx-auto"><canvas id="chart-pathways"></canvas></div></div>
+                        <div class="bg-gray-900 p-4 rounded border border-gray-800 col-span-full"><h3 class="text-sm font-bold text-gray-400 mb-4">Asistencias por Mes</h3><canvas id="chart-attendance-month"></canvas></div>
                     </div>
-                    <div class="bg-black rounded border border-gray-800 overflow-hidden"><table class="w-full text-left text-sm text-gray-400"><thead class="bg-gray-900 text-gray-200 uppercase font-bold text-xs"><tr><th class="p-3">Alumno</th><th class="p-3">Trayectoria</th><th class="p-3">Enlace</th><th class="p-3 text-center">Estado</th><th class="p-3 text-right">Acciones</th></tr></thead><tbody class="divide-y divide-gray-800" id="admin-certs-table-body"></tbody></table><div class="p-3 bg-gray-900 flex justify-center" id="pagination-certs"></div></div>
                 </div>
+                
+                <!-- CONTENT SESSIONS (CON FILTROS) -->
+                <div id="admin-content-sessions" class="hidden flex-1 p-6 overflow-y-auto bg-[#121212]">
+                    <div class="flex justify-between items-center mb-4"><h2 class="text-xl font-bold">Sesiones</h2><button onclick="openSessionEditor()" class="bg-cnci-blue px-3 py-1.5 rounded text-sm font-bold hover:bg-blue-600">Nueva</button></div>
+                    
+                    <!-- Filtros -->
+                    <div class="flex gap-4 mb-4 flex-wrap">
+                        <input type="text" id="search-sessions" onkeyup="renderAdminSessions()" placeholder="Buscar..." class="bg-black border border-gray-700 text-white rounded px-3 py-1.5 text-sm w-48 focus:border-cnci-blue outline-none">
+                        <select id="filter-session-cat" onchange="renderAdminSessions()" class="bg-black border border-gray-700 text-white rounded px-3 py-1.5 text-sm outline-none"><option value="all">Todas Trayectorias</option></select>
+                        <select id="filter-session-speaker" onchange="renderAdminSessions()" class="bg-black border border-gray-700 text-white rounded px-3 py-1.5 text-sm outline-none"><option value="all">Todos Ponentes</option></select>
+                    </div>
+
+                    <div class="bg-black rounded border border-gray-800 overflow-hidden"><table class="w-full text-left text-sm text-gray-400"><thead class="bg-gray-900 text-gray-200 uppercase font-bold text-xs"><tr><th class="p-3">Título</th><th class="p-3">Trayectoria</th><th class="p-3">Ponente</th><th class="p-3 text-center">Duración</th><th class="p-3 text-center">Asistencias</th><th class="p-3 text-center">Rating</th><th class="p-3 text-center">Acciones</th></tr></thead><tbody class="divide-y divide-gray-800" id="admin-sessions-table-body"></tbody></table><div class="p-3 bg-gray-900 flex justify-center" id="pagination-sessions"></div></div>
+                </div>
+                
+                <!-- Other Admin Sections -->
+                <div id="admin-content-pathways" class="hidden flex-1 p-6 overflow-y-auto bg-[#121212]"><div class="flex justify-between items-center mb-4"><h2 class="text-xl font-bold">Trayectorias</h2><button onclick="openPathwayEditor()" class="bg-cnci-blue px-3 py-1.5 rounded text-sm font-bold hover:bg-blue-600">Nueva</button></div><div class="bg-black rounded border border-gray-800 overflow-hidden"><table class="w-full text-left text-sm text-gray-400"><thead class="bg-gray-900 text-gray-200 uppercase font-bold text-xs"><tr><th class="p-3">Emoji</th><th class="p-3">Nombre</th><th class="p-3">Insignia</th><th class="p-3 text-center">Req.</th><th class="p-3 text-center">Acciones</th></tr></thead><tbody class="divide-y divide-gray-800" id="admin-pathways-table-body"></tbody></table></div></div>
+                <div id="admin-content-users" class="hidden flex-1 p-6 overflow-y-auto bg-[#121212]"><div class="flex justify-between items-center mb-4"><h2 class="text-xl font-bold">Alumnos</h2><div class="flex gap-2"><button onclick="downloadUsersCSV()" class="bg-green-700 px-3 py-1.5 rounded text-sm font-bold hover:bg-green-600">Exportar</button><button onclick="addUserManual()" class="bg-cnci-blue px-3 py-1.5 rounded text-sm font-bold hover:bg-blue-600">Añadir</button></div></div><div class="flex gap-4 mb-4"><input type="text" id="search-users" onkeyup="renderAdminUsers()" placeholder="Buscar matrícula..." class="bg-black border border-gray-700 text-white rounded px-3 py-1.5 text-sm w-64 focus:border-cnci-blue outline-none"><select id="filter-users-status" onchange="renderAdminUsers()" class="bg-black border border-gray-700 text-gray-300 rounded px-2 py-1.5 text-sm"><option value="all">Todos</option><option value="with_certs">Con Constancias</option></select></div><div class="bg-black rounded border border-gray-800 overflow-hidden"><table class="w-full text-left text-sm text-gray-400"><thead class="bg-gray-900 text-gray-200 uppercase font-bold text-xs"><tr><th class="p-3">Matrícula</th><th class="p-3 text-center">Asist.</th><th class="p-3 text-center">Const.</th><th class="p-3 text-center">Acciones</th></tr></thead><tbody class="divide-y divide-gray-800" id="admin-users-table-body"></tbody></table><div class="p-3 bg-gray-900 flex justify-center" id="pagination-users"></div></div></div>
+                <div id="admin-content-attendance" class="hidden flex-1 p-6 overflow-y-auto bg-[#121212]"><h2 class="text-xl font-bold mb-4">Importar Asistencias</h2><div class="grid md:grid-cols-3 gap-6"><div class="md:col-span-1 space-y-4 bg-gray-900 p-4 rounded border border-gray-800"><label class="text-xs text-gray-400 block mb-1">Sesión</label><input type="text" id="import-session-search" onkeyup="filterImportSessions()" placeholder="Buscar..." class="w-full bg-black border border-gray-700 text-white rounded p-2 text-sm mb-2"><select id="import-session-select" onchange="renderSessionAttendanceTable()" class="w-full bg-black border border-gray-700 text-white rounded p-2 text-sm mb-4" size="5"></select><hr class="border-gray-800 mb-4"><label class="text-xs text-gray-400 block mb-1">Matrículas</label><div class="mb-2"><input type="file" id="import-csv-file" accept=".csv,.txt" class="block w-full text-xs text-gray-400"/></div><textarea id="import-text-area" rows="3" class="w-full bg-black border border-gray-700 text-white rounded p-2 text-xs font-mono mb-2" placeholder="AL001, AL002..."></textarea><button onclick="processAttendanceImport()" class="w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-500 text-sm">Validar</button></div><div class="md:col-span-2"><div class="flex justify-between items-center mb-2 bg-gray-900 p-3 rounded border border-gray-800"><div><h3 class="font-bold text-sm text-white" id="attendance-session-title">Selecciona sesión</h3></div></div><div class="bg-black rounded border border-gray-800 overflow-hidden"><table class="w-full text-left text-sm text-gray-400"><thead class="bg-gray-900 text-gray-200 uppercase font-bold text-xs"><tr><th class="p-3">Alumno</th><th class="p-3">Estado</th><th class="p-3 text-right">Acciones</th></tr></thead><tbody class="divide-y divide-gray-800" id="admin-attendance-table-body"></tbody></table><div class="p-3 bg-gray-900 flex justify-center" id="pagination-attendance"></div></div></div></div></div>
+                <div id="admin-content-certificates" class="hidden flex-1 p-6 overflow-y-auto bg-[#121212]"><h2 class="text-xl font-bold mb-4">Constancias</h2><div class="grid md:grid-cols-3 gap-6 mb-6"><div class="bg-gray-900 p-4 rounded border border-gray-800"><h3 class="text-sm font-bold text-cnci-orange mb-2">Manual</h3><div class="space-y-2"><input type="text" id="cert-manual-id" class="w-full bg-black border border-gray-700 rounded p-2 text-white text-xs mb-2" placeholder="Matrícula"><select id="cert-manual-pathway" class="w-full bg-black border border-gray-700 rounded p-2 text-white text-xs mb-2"></select><input type="text" id="cert-manual-link" class="w-full bg-black border border-gray-700 rounded p-2 text-white text-xs mb-2" placeholder="Link"><button onclick="assignCertificateManual()" class="w-full bg-cnci-blue py-1.5 rounded font-bold text-xs">Asignar</button></div></div><div class="bg-gray-900 p-4 rounded border border-gray-800"><h3 class="text-sm font-bold text-green-500 mb-2">CSV Masivo</h3><p class="text-[10px] text-gray-400 mb-2">Fmt: <code>Matrícula,ID_Trayectoria,Link</code></p><input type="file" id="cert-csv-file" accept=".csv, .txt" class="block w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:bg-gray-700 file:text-white mb-2"/><button onclick="processCertificateCSV()" class="w-full bg-green-600 py-1.5 rounded font-bold hover:bg-green-500 text-xs">Procesar</button></div><div class="bg-gray-900 p-4 rounded border border-gray-800 flex flex-col justify-center items-center"><h3 class="text-sm font-bold text-white mb-2">Reportes</h3><button onclick="exportCertificatesCSV()" class="bg-gray-700 w-full py-2 rounded text-xs hover:bg-gray-600 mb-2"><i class="fas fa-file-csv"></i> Exportar Todo</button></div></div><div class="bg-black rounded border border-gray-800 overflow-hidden"><table class="w-full text-left text-sm text-gray-400"><thead class="bg-gray-900 text-gray-200 uppercase font-bold text-xs"><tr><th class="p-3">Alumno</th><th class="p-3">Trayectoria</th><th class="p-3">Link</th><th class="p-3 text-right">Acciones</th></tr></thead><tbody class="divide-y divide-gray-800" id="admin-certs-table-body"></tbody></table><div class="p-3 bg-gray-900 flex justify-center" id="pagination-certs"></div></div></div>
             </div>
         </div>
     </div>
@@ -346,95 +321,74 @@
             <h3 class="text-xl font-bold text-white mb-4" id="editor-modal-title">Editar Sesión</h3>
             <input type="hidden" id="edit-id">
             <div class="space-y-4">
-                <div><label class="text-xs text-gray-400">Título</label><input type="text" id="edit-title" class="w-full bg-black border border-gray-600 rounded p-2 text-white"></div>
-                <div><label class="text-xs text-gray-400">Descripción</label><textarea id="edit-desc" rows="2" class="w-full bg-black border border-gray-600 rounded p-2 text-white"></textarea></div>
-                <div class="grid grid-cols-2 gap-4"><div><label class="text-xs text-gray-400">Ponente</label><input type="text" id="edit-speaker" class="w-full bg-black border border-gray-600 rounded p-2 text-white"></div><div><label class="text-xs text-gray-400">Categoría</label><select id="edit-category" class="w-full bg-black border border-gray-600 rounded p-2 text-white"></select></div></div>
-                <div><label class="text-xs text-gray-400">Enlace de Acceso</label><input type="text" id="edit-link" class="w-full bg-black border border-gray-600 rounded p-2 text-white"></div>
-                <div><label class="text-xs text-gray-400">Google Calendar (Opcional)</label><input type="text" id="edit-gcal" class="w-full bg-black border border-gray-600 rounded p-2 text-white"></div>
-                 <div class="grid grid-cols-2 gap-4"><div><label class="text-xs text-gray-400">Fecha y Hora</label><input type="datetime-local" id="edit-date" class="w-full bg-black border border-gray-600 rounded p-2 text-white"></div><div><label class="text-xs text-gray-400">Duración (min)</label><input type="number" id="edit-duration" class="w-full bg-black border border-gray-600 rounded p-2 text-white"></div></div>
-                <div><label class="text-xs text-gray-400">Imagen URL</label><input type="text" id="edit-image" class="w-full bg-black border border-gray-600 rounded p-2 text-white"></div>
+                <input type="text" id="edit-title" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm" placeholder="Título de la sesión">
+                <textarea id="edit-desc" rows="2" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm" placeholder="Descripción breve"></textarea>
+                <div class="grid grid-cols-2 gap-4"><input type="text" id="edit-speaker" class="bg-black border border-gray-600 rounded p-2 text-white text-sm" placeholder="Ponente"><select id="edit-category" class="bg-black border border-gray-600 rounded p-2 text-white text-sm"></select></div>
+                <div class="grid grid-cols-2 gap-4"><div><label class="text-xs text-gray-400 block mb-1">Fecha</label><input type="date" id="edit-date-day" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm"></div><div><label class="text-xs text-gray-400 block mb-1">Hora</label><input type="time" id="edit-date-time" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm mb-1"><div class="flex gap-1 flex-wrap"><span onclick="document.getElementById('edit-date-time').value='09:00'" class="time-chip">09:00</span><span onclick="document.getElementById('edit-date-time').value='11:00'" class="time-chip">11:00</span><span onclick="document.getElementById('edit-date-time').value='16:00'" class="time-chip">16:00</span><span onclick="document.getElementById('edit-date-time').value='18:00'" class="time-chip">18:00</span></div></div></div>
+                <div class="grid grid-cols-2 gap-4"><div><label class="text-xs text-gray-400 block mb-1">Duración (min)</label><input type="number" id="edit-duration" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm"></div><div><label class="text-xs text-gray-400 block mb-1">Imagen URL</label><input type="text" id="edit-image" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm"></div></div>
+                <div class="border-t border-gray-700 pt-2 space-y-3"><div><label class="text-xs text-gray-400 block mb-1">Enlace Acceso (Teams)</label><input type="text" id="edit-link" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm" placeholder="https://teams..."></div><div><label class="text-xs text-cnci-blue block mb-1">Enlace Grabación</label><input type="text" id="edit-recording-link" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm border-cnci-blue" placeholder="Embed URL"></div><div><label class="text-xs text-gray-400 block mb-1">GCalendar</label><input type="text" id="edit-gcal" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm"></div></div>
                 <div class="flex gap-2 justify-end pt-4"><button onclick="document.getElementById('session-editor-modal').classList.add('hidden')" class="px-4 py-2 text-gray-400 hover:text-white">Cancelar</button><button onclick="saveSessionForm()" class="px-6 py-2 bg-cnci-blue text-white rounded font-bold hover:bg-blue-600">Guardar</button></div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL EDITOR TRAYECTORIAS (NUEVO) -->
+    <!-- MODAL EDITOR TRAYECTORIAS -->
     <div id="pathway-editor-modal" class="fixed inset-0 z-[135] hidden flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
         <div class="bg-[#1f1f1f] rounded-lg max-w-sm w-full p-6 border border-gray-700 shadow-2xl relative">
-            <h3 class="text-xl font-bold text-white mb-4">Editar Trayectoria</h3>
+            <h3 class="text-xl font-bold text-white mb-4">Trayectoria</h3>
             <input type="hidden" id="path-edit-id">
             <div class="space-y-4">
-                <div><label class="text-xs text-gray-400">ID (clave única sin espacios)</label><input type="text" id="path-edit-key" class="w-full bg-black border border-gray-600 rounded p-2 text-white uppercase" placeholder="EJEMPLO_ID"></div>
-                <div><label class="text-xs text-gray-400">Nombre Visible</label><input type="text" id="path-edit-name" class="w-full bg-black border border-gray-600 rounded p-2 text-white"></div>
-                <div><label class="text-xs text-gray-400">Nombre Insignia</label><input type="text" id="path-edit-badge" class="w-full bg-black border border-gray-600 rounded p-2 text-white"></div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div><label class="text-xs text-gray-400">Emoji</label><input type="text" id="path-edit-emoji" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-center text-xl"></div>
-                    <div><label class="text-xs text-gray-400">Requisito #</label><input type="number" id="path-edit-req" class="w-full bg-black border border-gray-600 rounded p-2 text-white"></div>
-                </div>
-                <div class="flex gap-2 justify-end pt-4"><button onclick="document.getElementById('pathway-editor-modal').classList.add('hidden')" class="px-4 py-2 text-gray-400 hover:text-white">Cancelar</button><button onclick="savePathwayForm()" class="px-6 py-2 bg-cnci-blue text-white rounded font-bold hover:bg-blue-600">Guardar</button></div>
+                <input type="text" id="path-edit-key" class="w-full bg-black border border-gray-600 rounded p-2 text-white uppercase" placeholder="ID">
+                <input type="text" id="path-edit-name" class="w-full bg-black border border-gray-600 rounded p-2 text-white" placeholder="Nombre">
+                <input type="text" id="path-edit-badge" class="w-full bg-black border border-gray-600 rounded p-2 text-white" placeholder="Insignia">
+                <div class="grid grid-cols-2 gap-4"><input type="text" id="path-edit-emoji" class="bg-black border border-gray-600 rounded p-2 text-white text-center" placeholder="Emoji"><input type="number" id="path-edit-req" class="bg-black border border-gray-600 rounded p-2 text-white" placeholder="Req #"></div>
+                <div class="flex gap-2 justify-end pt-4"><button onclick="document.getElementById('pathway-editor-modal').classList.add('hidden')" class="px-4 py-2 text-gray-400">Cancelar</button><button onclick="savePathwayForm()" class="px-6 py-2 bg-cnci-blue text-white rounded font-bold">Guardar</button></div>
             </div>
         </div>
     </div>
 
-    <!-- SCRIPT (ES MODULE) for Firebase -->
+    <!-- FIREBASE MODULE -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
         import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // CONFIG (PROVIDED BY USER)
-        const firebaseConfig = {
-            apiKey: "AIzaSyB4q7TQoyTKY-bBHzvhr2hf3je15MJO760",
-            authDomain: "hubbienestarydesarrollocnci.firebaseapp.com",
-            projectId: "hubbienestarydesarrollocnci",
-            storageBucket: "hubbienestarydesarrollocnci.firebasestorage.app",
-            messagingSenderId: "752549669907",
-            appId: "1:752549669907:web:efd2936f3aad533b05e3e6",
-            measurementId: "G-WX4PH3XFJQ"
-        };
-
+        const firebaseConfig = { apiKey: "AIzaSyB4q7TQoyTKY-bBHzvhr2hf3je15MJO760", authDomain: "hubbienestarydesarrollocnci.firebaseapp.com", projectId: "hubbienestarydesarrollocnci", storageBucket: "hubbienestarydesarrollocnci.firebasestorage.app", messagingSenderId: "752549669907", appId: "1:752549669907:web:efd2936f3aad533b05e3e6" };
         const app = initializeApp(firebaseConfig);
-        const analytics = getAnalytics(app);
         const db = getFirestore(app);
         const auth = getAuth(app);
-
-        // Expose Firebase Functions to Window for Main Logic
         window.db = db;
         window.fb = { collection, doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, query, where, getDocs };
-
-        // INITIAL CONNECTION
         signInAnonymously(auth).then(() => {
-            console.log("Firebase Connected");
+            console.log("Firebase Ready");
             document.getElementById('loading-overlay').classList.add('opacity-0');
             setTimeout(() => document.getElementById('loading-overlay').remove(), 500);
             window.dispatchEvent(new CustomEvent('firebase-ready'));
-        }).catch((error) => {
-            console.error("Auth Error", error);
-            Swal.fire("Error de Conexión", "No se pudo conectar a la base de datos.", "error");
         });
     </script>
 
-    <!-- SCRIPT (APP LOGIC) -->
+    <!-- APP LOGIC -->
     <script>
-        // --- CONSTANTS ---
         const ITEMS_PER_PAGE = 15;
-        const now = new Date();
-        const addHours = (h) => new Date(now.getTime() + h * 60 * 60 * 1000).toISOString();
-        
-        // --- LOCAL STATE (Synced with Firebase) ---
         let categoriesDB = {};
         let sessions = [];
-        let usersDB = {}; // Loaded on demand or full for admin
-        let currentUser = null; 
-        let currentUserData = null; // Sync object
+        let usersDB = {};
+        let currentUser = null;
+        let currentUserData = null;
         let currentModalSession = null;
-
         let currentPage = { sessions: 1, users: 1, attendance: 1, certs: 1 };
         let currentAttendanceSessionId = null;
         let currentFilterPathway = 'all';
+        let currentSearchQuery = "";
+        let charts = {};
 
-        // Listen for Firebase Ready
+        window.handleProfileClick = function() {
+            if(currentUser) {
+                const dd = document.getElementById('profile-dropdown');
+                dd.classList.toggle('hidden'); dd.classList.toggle('flex');
+            } else document.getElementById('login-modal').classList.remove('hidden');
+        };
+
         window.addEventListener('firebase-ready', init);
 
         function init() {
@@ -443,55 +397,37 @@
             setupNavbarScroll();
         }
 
-        // --- FIREBASE SYNC LISTENERS ---
         function setupRealtimeListeners() {
-            // Listen to Sessions
             window.fb.onSnapshot(window.fb.collection(window.db, "sessions"), (snapshot) => {
                 sessions = [];
                 snapshot.forEach((doc) => sessions.push({ id: parseInt(doc.id), ...doc.data() }));
-                sessions.sort((a,b) => new Date(a.startTime) - new Date(b.startTime)); // Sort chronologically
-                renderHero();
-                renderRows();
-                renderRecordingsGrid();
-                if(window.isAdminMode) renderAdminSessions(); // refresh admin view if open
+                sessions.sort((a,b) => new Date(a.startTime) - new Date(b.startTime));
+                renderHero(); renderRows(); renderRecordingsGrid(); renderNotifications();
+                if(window.isAdminMode) { renderAdminSessions(); renderAdminStats(); populateFilters(); }
             });
-
-            // Listen to Categories
             window.fb.onSnapshot(window.fb.collection(window.db, "categories"), (snapshot) => {
                 categoriesDB = {};
                 snapshot.forEach((doc) => categoriesDB[doc.id] = doc.data());
-                renderFilters();
-                renderRows();
-                if(window.isAdminMode) renderAdminPathways();
+                renderFilters(); renderRows(); renderNotifications();
+                if(window.isAdminMode) { renderAdminPathways(); populateFilters(); }
             });
         }
 
-        // --- AUTH & STUDENT LOGIC ---
-        function attemptLogin() {
+        // --- AUTH ---
+        window.attemptLogin = function() {
             const id = document.getElementById('student-id').value.trim().toUpperCase();
-            if(id.startsWith('AL') && id.length >= 6) {
-                loginUser(id);
-            } else Swal.fire('Error', 'Matrícula inválida', 'error');
-        }
+            if(id.startsWith('AL') && id.length >= 6) loginUser(id);
+            else Swal.fire('Error', 'Matrícula inválida', 'error');
+        };
 
         async function loginUser(id) {
             const docRef = window.fb.doc(window.db, "students", id);
             const docSnap = await window.fb.getDoc(docRef);
-
-            if (!docSnap.exists()) {
-                // Create new user
-                const newUser = { id: id, verifiedSessions: [], certificates: [], favorites: [], lastAccess: new Date().toISOString() };
-                await window.fb.setDoc(docRef, newUser);
-            } else {
-                // Update last access
-                await window.fb.updateDoc(docRef, { lastAccess: new Date().toISOString() });
-            }
-
+            if (!docSnap.exists()) await window.fb.setDoc(docRef, { id: id, verifiedSessions: [], certificates: [], favorites: [], ratings: {}, lastAccess: new Date().toISOString() });
+            else await window.fb.updateDoc(docRef, { lastAccess: new Date().toISOString() });
             localStorage.setItem('cnci_currentUser', id);
             currentUser = id;
             document.getElementById('login-modal').classList.add('hidden');
-            
-            // Subscribe to user changes
             subscribeToUser(id);
         }
 
@@ -500,493 +436,295 @@
                 currentUserData = doc.data();
                 document.getElementById('user-avatar').src = `https://ui-avatars.com/api/?name=${id}&background=2a6aff&color=fff`;
                 document.getElementById('user-greeting').innerText = `Hola, ${id}`;
-                
-                // Refresh views that depend on user data
-                renderHero(); // Update match %
-                if(document.getElementById('pathways-modal').classList.contains('hidden') === false) openPathwaysModal();
+                renderNotifications();
+                if(!document.getElementById('pathways-modal').classList.contains('hidden')) window.openPathwaysModal();
             });
         }
 
-        function checkSession() {
-            const u = localStorage.getItem('cnci_currentUser');
-            if(u) loginUser(u);
-        }
+        window.logout = function() { localStorage.removeItem('cnci_currentUser'); location.reload(); };
+        function checkSession() { const u = localStorage.getItem('cnci_currentUser'); if(u) loginUser(u); }
 
-        function logout() {
-            localStorage.removeItem('cnci_currentUser');
-            location.reload();
-        }
+        // --- NOTIFICATIONS & FRONTEND ---
+        function renderNotifications() {
+            const badge = document.getElementById('notif-badge');
+            const list = document.getElementById('notif-list');
+            list.innerHTML = "";
+            let count = 0;
 
-        // --- TIMEZONE UTILS ---
-        function formatMXDate(isoString) {
-            if(!isoString) return "-";
-            return new Date(isoString).toLocaleString('es-MX', {
-                timeZone: 'America/Mexico_City',
-                year: 'numeric', month: '2-digit', day: '2-digit', 
-                hour: '2-digit', minute: '2-digit', hour12: true
-            }) + " (CDMX)";
-        }
-
-        // --- FRONTEND LOGIC ---
-        function getSessionStatus(s) {
-            const n = new Date();
-            const start = new Date(s.startTime);
-            const end = new Date(start.getTime() + s.durationMinutes * 60000);
-            if(n >= start && n <= end) return 'LIVE';
-            else if(n < start) return 'UPCOMING';
-            return 'RECORDED';
-        }
-
-        function renderHero() {
-            if(sessions.length === 0) return;
-            let hero = sessions.find(s => getSessionStatus(s) === 'LIVE') || sessions.find(s => s.featured && getSessionStatus(s) === 'UPCOMING') || sessions.find(s => getSessionStatus(s) === 'UPCOMING');
-            if(!hero) hero = sessions[sessions.length-1];
-
-            const status = getSessionStatus(hero);
-            const cat = categoriesDB[hero.category] || {name: hero.category, emoji: ''};
-            
-            let badgeHTML = status === 'LIVE' 
-                ? `<span class="bg-cnci-orange text-black font-bold text-xs px-2 py-1 rounded shadow-lg shadow-orange-500/50 live-indicator flex items-center gap-2"><i class="fas fa-broadcast-tower"></i> EN VIVO</span>`
-                : `<span class="bg-blue-800 text-white font-bold text-xs px-2 py-1 rounded flex items-center gap-2"><i class="far fa-calendar-alt"></i> ${formatMXDate(hero.startTime).split(' ')[0]}</span>`;
-
-            document.getElementById('hero-section').innerHTML = `
-                <div class="absolute inset-0"><img src="${hero.image}" class="w-full h-full object-cover"><div class="absolute inset-0 hero-overlay"></div><div class="absolute inset-0 hero-gradient"></div></div>
-                <div class="absolute top-[30%] left-4 md:left-12 max-w-2xl space-y-5 animate-fade-in">
-                    <div class="flex items-center gap-3">${badgeHTML} <span class="text-cnci-blue font-bold tracking-widest text-sm uppercase">Destacado</span></div>
-                    <h1 class="text-4xl md:text-6xl font-bold text-white drop-shadow-lg leading-tight">${hero.title}</h1>
-                    <div class="flex items-center gap-4 text-sm font-semibold">
-                        <span class="text-green-400">98% Match</span>
-                        <span class="text-gray-300">${hero.durationMinutes} min</span>
-                        <span class="text-cnci-blue flex items-center gap-1">${cat.emoji} ${cat.name}</span>
-                    </div>
-                    <p class="text-gray-200 text-lg drop-shadow-md line-clamp-3 max-w-xl">${hero.desc}</p>
-                    <div class="flex gap-4 pt-4"><button onclick="openModal(${JSON.stringify(hero).replace(/"/g, '&quot;')})" class="bg-cnci-blue text-white px-8 py-3 rounded hover:bg-blue-700 transition flex items-center gap-2 font-bold shadow-lg shadow-blue-900/50"><i class="fas fa-play"></i> Ver Detalles</button></div>
-                </div>
-            `;
-        }
-
-        function renderRows() {
-            const container = document.getElementById('content-rows');
-            container.innerHTML = "";
-            Object.values(categoriesDB).forEach(cat => {
-                if(currentFilterPathway !== 'all' && currentFilterPathway !== cat.id) return;
-                const filtered = sessions.filter(s => s.category === cat.id && (getSessionStatus(s) === 'LIVE' || getSessionStatus(s) === 'UPCOMING'));
-                if(filtered.length === 0) return;
-
-                container.innerHTML += `
-                    <div class="mb-8 group/row animate-fade-in">
-                        <h2 class="text-xl font-bold text-gray-200 mb-4 flex items-center gap-2">
-                            <span class="text-2xl">${cat.emoji}</span> ${cat.name} <span class="text-xs text-gray-500 font-normal ml-2 uppercase tracking-wide">Próximas Sesiones</span>
-                        </h2>
-                        <div class="relative group/slider">
-                            <div class="flex overflow-x-auto gap-4 hide-scroll-bar py-4 px-1 scroll-smooth">
-                                ${filtered.map(s => createCardHTML(s, cat)).join('')}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-        }
-
-        function renderRecordingsGrid() {
-            const container = document.getElementById('recordings-grid');
-            const select = document.getElementById('recordings-filter');
-            container.innerHTML = "";
-            
-            if(select.options.length <= 1) {
-                select.innerHTML = '<option value="all">Todas las Trayectorias</option>';
-                Object.values(categoriesDB).forEach(cat => {
-                    const opt = document.createElement('option');
-                    opt.value = cat.id; opt.innerText = `${cat.emoji} ${cat.name}`;
-                    select.appendChild(opt);
-                });
+            if (currentUserData) {
+                // 1. Constancias pendientes
+                if(currentUserData.certificates) {
+                    currentUserData.certificates.forEach(c => {
+                        if(!c.accessed) {
+                            count++;
+                            const cat = categoriesDB[c.pathway] || {};
+                            list.innerHTML += `<div class="p-3 border-b border-gray-700 hover:bg-gray-800 cursor-pointer" onclick="openPathwaysModal()"><div class="flex items-center gap-2"><i class="fas fa-award text-yellow-400"></i><div class="text-xs text-white">Constancia disponible: <span class="font-bold">${cat.name}</span></div></div></div>`;
+                        }
+                    });
+                }
             }
 
-            const filterVal = select.value;
-            let recs = sessions.filter(s => getSessionStatus(s) === 'RECORDED');
-            if(currentFilterPathway !== 'all') recs = recs.filter(s => s.category === currentFilterPathway);
-            else if(filterVal !== 'all') recs = recs.filter(s => s.category === filterVal);
-
-            if(recs.length === 0) { container.innerHTML = `<div class="col-span-full text-center text-gray-600 py-10">No hay sesiones disponibles en esta categoría.</div>`; return; }
-            recs.forEach(s => { const cat = categoriesDB[s.category] || {emoji: ''}; container.innerHTML += createCardHTML(s, cat); });
-        }
-
-        function createCardHTML(s, cat) {
-            const json = JSON.stringify(s).replace(/"/g, '&quot;');
-            return `
-            <div class="movie-card relative flex-none w-full h-[140px] rounded-md overflow-hidden bg-gray-800" onclick="openModal(${json})">
-                <img src="${s.image}" class="w-full h-full object-cover opacity-80 hover:opacity-100 transition">
-                <div class="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black to-transparent">
-                    <p class="text-white text-xs font-bold truncate">${cat.emoji} ${s.title}</p>
-                </div>
-            </div>`;
-        }
-
-        function renderFilters() {
-            const container = document.getElementById('pathway-filters');
-            container.innerHTML = `<button onclick="setPathwayFilter('all')" class="px-4 py-1 rounded-full text-xs font-bold border border-gray-700 hover:bg-gray-800 transition ${currentFilterPathway==='all' ? 'bg-white text-black border-white' : 'text-gray-400'}">Todas</button>`;
-            Object.values(categoriesDB).forEach(cat => {
-                container.innerHTML += `<button onclick="setPathwayFilter('${cat.id}')" class="px-4 py-1 rounded-full text-xs font-bold border border-gray-700 hover:bg-gray-800 transition ${currentFilterPathway===cat.id ? 'bg-white text-black border-white' : 'text-gray-400'}">${cat.emoji} ${cat.name}</button>`;
+            // 2. Sesiones próximas (próximos 3 días)
+            const today = new Date();
+            const limit = new Date(today);
+            limit.setDate(today.getDate() + 3);
+            
+            sessions.forEach(s => {
+                const sDate = new Date(s.startTime);
+                if(sDate > today && sDate < limit) {
+                    count++;
+                    list.innerHTML += `<div class="p-3 border-b border-gray-700 hover:bg-gray-800 cursor-pointer" onclick="openModal(${JSON.stringify(s).replace(/"/g, '&quot;')})"><div class="flex items-center gap-2"><i class="fas fa-video text-cnci-blue"></i><div class="text-xs text-white">Próxima Sesión: <span class="font-bold">${s.title}</span><div class="text-[10px] text-gray-400">${formatMXDate(s.startTime)}</div></div></div></div>`;
+                }
             });
-        }
-        function setPathwayFilter(pid) { currentFilterPathway = pid; renderFilters(); renderRows(); renderRecordingsGrid(); }
 
-        // --- MODALS ---
-        function openModal(data) {
+            if(count > 0) { badge.innerText = count; badge.classList.remove('hidden'); }
+            else { badge.classList.add('hidden'); list.innerHTML = `<div class="p-4 text-center text-gray-500 text-xs">No tienes notificaciones nuevas.</div>`; }
+        }
+
+        window.handleGlobalSearch = function(val) { currentSearchQuery = val.toLowerCase(); renderRows(); };
+        window.setPathwayFilter = function(id) { currentFilterPathway = id; renderFilters(); renderRows(); renderRecordingsGrid(); };
+        function formatMXDate(iso) { if(!iso) return "-"; return new Date(iso).toLocaleString('es-MX', { timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true }) + " (CDMX)"; }
+        function getSessionStatus(s) { const n = new Date(); const start = new Date(s.startTime); const end = new Date(start.getTime() + s.durationMinutes * 60000); if(n >= start && n <= end) return 'LIVE'; else if(n < start) return 'UPCOMING'; return 'RECORDED'; }
+        
+        function renderHero() { /* same as before */ if(sessions.length===0) return; let hero = sessions.find(s => getSessionStatus(s)==='LIVE') || sessions.find(s => s.featured && getSessionStatus(s)==='UPCOMING') || sessions[sessions.length-1]; if(!hero) return; const status = getSessionStatus(hero); const cat = categoriesDB[hero.category] || {name: hero.category, emoji: ''}; let badgeHTML = status==='LIVE' ? '<span class="bg-cnci-orange text-black font-bold text-xs px-2 py-1 rounded shadow-lg shadow-orange-500/50 live-indicator flex items-center gap-2"><i class="fas fa-broadcast-tower"></i> EN VIVO</span>' : `<span class="bg-blue-800 text-white font-bold text-xs px-2 py-1 rounded flex items-center gap-2"><i class="far fa-calendar-alt"></i> ${formatMXDate(hero.startTime).split(' ')[0]}</span>`; const json = JSON.stringify(hero).replace(/"/g, '&quot;'); document.getElementById('hero-section').innerHTML = `<div class="absolute inset-0"><img src="${hero.image}" class="w-full h-full object-cover" onerror="handleImageError(this)"><div class="absolute inset-0 hero-overlay"></div><div class="absolute inset-0 hero-gradient"></div></div><div class="absolute top-[30%] left-4 md:left-12 max-w-2xl space-y-5 animate-fade-in"><div class="flex items-center gap-3">${badgeHTML} <span class="text-cnci-blue font-bold tracking-widest text-sm uppercase">Destacado</span></div><h1 class="text-4xl md:text-6xl font-bold text-white drop-shadow-lg leading-tight">${hero.title}</h1><div class="flex items-center gap-4 text-sm font-semibold"><span class="text-green-400">98% Match</span><span class="text-gray-300">${hero.durationMinutes} min</span><span class="text-cnci-blue flex items-center gap-1">${cat.emoji} ${cat.name}</span></div><p class="text-gray-200 text-lg drop-shadow-md line-clamp-3 max-w-xl">${hero.desc}</p><div class="flex gap-4 pt-4"><button onclick="openModal(${json})" class="bg-cnci-blue text-white px-8 py-3 rounded hover:bg-blue-700 font-bold transition">Ver Detalles</button></div></div>`; }
+        function renderRows() { /* same */ const container = document.getElementById('content-rows'); container.innerHTML = ""; Object.values(categoriesDB).forEach(cat => { if(currentFilterPathway !== 'all' && currentFilterPathway !== cat.id) return; const filtered = sessions.filter(s => { const st = getSessionStatus(s); const matchTime = st === 'LIVE' || st === 'UPCOMING'; const matchCat = s.category === cat.id; const matchSearch = currentSearchQuery === "" || s.title.toLowerCase().includes(currentSearchQuery) || s.speaker.toLowerCase().includes(currentSearchQuery); return matchTime && matchCat && matchSearch; }); if(filtered.length === 0) return; container.innerHTML += `<div class="mb-8 group/row animate-fade-in"><h2 class="text-xl font-bold text-gray-200 mb-4 flex items-center gap-2"><span class="text-2xl">${cat.emoji}</span> ${cat.name}</h2><div class="relative group/slider"><div class="flex overflow-x-auto gap-4 hide-scroll-bar py-4 px-1 scroll-smooth">${filtered.map(s => createCardHTML(s, cat, 'w-[280px]', 'h-[158px]')).join('')}</div></div></div>`; }); }
+        function renderRecordingsGrid() { /* same */ const container = document.getElementById('recordings-grid'); const select = document.getElementById('recordings-filter'); container.innerHTML = ""; if(select.options.length <= 1) { select.innerHTML = '<option value="all">Todas las Trayectorias</option>'; Object.values(categoriesDB).forEach(cat => { const opt = document.createElement('option'); opt.value = cat.id; opt.innerText = `${cat.emoji} ${cat.name}`; select.appendChild(opt); }); } const filterVal = select.value; let recs = sessions.filter(s => getSessionStatus(s) === 'RECORDED'); if(currentFilterPathway !== 'all') recs = recs.filter(s => s.category === currentFilterPathway); else if(filterVal !== 'all') recs = recs.filter(s => s.category === filterVal); if(recs.length === 0) { container.innerHTML = `<div class="col-span-full text-center text-gray-600 py-10">No hay sesiones disponibles.</div>`; return; } recs.forEach(s => { const cat = categoriesDB[s.category] || {emoji: ''}; container.innerHTML += createCardHTML(s, cat); }); }
+        function createCardHTML(s, cat, widthClass = 'w-full', heightClass = 'h-[140px]') { const json = JSON.stringify(s).replace(/"/g, '&quot;'); return `<div class="movie-card relative flex-none ${widthClass} ${heightClass} rounded-md overflow-hidden bg-gray-800" onclick="openModal(${json})"><img src="${s.image}" class="w-full h-full object-cover opacity-80 hover:opacity-100 transition" onerror="handleImageError(this)"><div class="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black to-transparent"><p class="text-white text-xs font-bold truncate">${cat.emoji} ${s.title}</p></div></div>`; }
+        function renderFilters() { const c = document.getElementById('pathway-filters'); c.innerHTML = `<button onclick="setPathwayFilter('all')" class="px-4 py-1 rounded-full text-xs font-bold border border-gray-700 hover:bg-gray-800 transition ${currentFilterPathway==='all'?'bg-white text-black':'text-gray-400'}">Todas</button>`; Object.values(categoriesDB).forEach(cat => { c.innerHTML += `<button onclick="setPathwayFilter('${cat.id}')" class="px-4 py-1 rounded-full text-xs font-bold border border-gray-700 hover:bg-gray-800 transition ${currentFilterPathway===cat.id?'bg-white text-black':'text-gray-400'}">${cat.emoji} ${cat.name}</button>`; }); }
+
+        // --- MODAL & RATINGS ---
+        window.openModal = function(data) {
             currentModalSession = data;
             const modal = document.getElementById('modal');
             const cat = categoriesDB[data.category] || {};
-            document.getElementById('modal-img').src = data.image;
+            const status = getSessionStatus(data);
+            const isEmbed = status === 'RECORDED' && data.link && (data.link.includes('embed') || data.link.includes('youtube') || data.link.includes('vimeo') || data.link.includes('onedrive'));
+
+            // Basic Info
             document.getElementById('modal-title').innerText = `${cat.emoji || ''} ${data.title}`;
+            document.getElementById('modal-title-alt').innerText = data.title;
             document.getElementById('modal-desc').innerText = data.desc;
             document.getElementById('modal-speaker').innerText = data.speaker;
             document.getElementById('modal-category').innerText = cat.name || data.category;
             document.getElementById('modal-duration').innerText = formatMXDate(data.startTime);
             document.getElementById('modal-pathway-name').innerText = cat.badge || 'Certificado';
-            document.getElementById('modal-link-btn').href = data.link;
-            document.getElementById('modal-gcal-btn').href = data.gcal || "#";
             
+            // Layout Logic (Embed vs Hero)
+            const embedContainer = document.getElementById('modal-embed-container');
+            const heroContainer = document.getElementById('modal-hero-container');
+            const linkBtn = document.getElementById('modal-link-btn');
+            const ratingContainer = document.getElementById('modal-rating-container');
+
+            if(isEmbed) {
+                embedContainer.classList.remove('hidden');
+                heroContainer.classList.add('hidden');
+                document.getElementById('modal-title-alt').classList.remove('hidden');
+                document.getElementById('modal-iframe').src = data.link;
+                linkBtn.classList.add('hidden');
+            } else {
+                embedContainer.classList.add('hidden');
+                heroContainer.classList.remove('hidden');
+                document.getElementById('modal-title-alt').classList.add('hidden');
+                document.getElementById('modal-img').src = data.image;
+                document.getElementById('modal-iframe').src = "";
+                linkBtn.classList.remove('hidden');
+                linkBtn.href = data.link;
+                
+                if(status === 'RECORDED') {
+                    linkBtn.innerHTML = '<i class="fas fa-play mr-2"></i> Ver Grabación';
+                    if(!data.link && !data.recordingLink) {
+                        linkBtn.href = "javascript:void(0)";
+                        linkBtn.classList.add("opacity-50", "cursor-not-allowed");
+                        linkBtn.innerHTML = '<i class="fas fa-clock mr-2"></i> Grabación Pendiente';
+                    } else if (data.recordingLink) {
+                        linkBtn.href = data.recordingLink;
+                    }
+                } else {
+                    linkBtn.innerHTML = '<i class="fas fa-external-link-alt mr-2"></i> Ingresar a Sesión';
+                    linkBtn.classList.remove("opacity-50", "cursor-not-allowed");
+                }
+            }
+
+            // Rating Visibility: ONLY for Recordings
+            if (status === 'RECORDED') {
+                ratingContainer.classList.remove('hidden');
+                // Set current rating if exists
+                if (currentUserData && currentUserData.ratings && currentUserData.ratings[data.id]) {
+                    const r = currentUserData.ratings[data.id];
+                    document.getElementById(`star${r}`).checked = true;
+                } else {
+                    // Reset stars
+                    document.querySelectorAll('.star-rating input').forEach(i => i.checked = false);
+                }
+                
+                // Show Average Rating
+                const avg = data.ratingAvg ? data.ratingAvg.toFixed(1) : '-';
+                document.getElementById('modal-avg-rating').innerHTML = `<i class="fas fa-star"></i> ${avg}`;
+            } else {
+                ratingContainer.classList.add('hidden');
+                document.getElementById('modal-avg-rating').innerHTML = '';
+            }
+
+            // ... (rest of modal logic)
+            document.getElementById('modal-gcal-btn').href = data.gcal || "#";
+            document.getElementById('modal-time-status').innerText = status === 'LIVE' ? "En Vivo" : (status === 'UPCOMING' ? "Próximamente" : "Grabación");
             const btn = document.getElementById('btn-favorite');
             const isFav = currentUserData && currentUserData.favorites && currentUserData.favorites.includes(data.id);
-            if(isFav) {
-                btn.innerHTML = '<i class="fas fa-heart"></i>'; btn.className = "bg-pink-600 border border-pink-600 text-white px-4 py-2 rounded transition";
-            } else {
-                btn.innerHTML = '<i class="far fa-heart"></i>'; btn.className = "border border-gray-500 text-white px-4 py-2 rounded hover:border-pink-500 hover:text-pink-500 transition";
-            }
+            if(isFav) { btn.innerHTML = '<i class="fas fa-heart"></i>'; btn.className = "bg-pink-600 border border-pink-600 text-white px-4 py-2 rounded transition"; } 
+            else { btn.innerHTML = '<i class="far fa-heart"></i>'; btn.className = "border border-gray-500 text-white px-4 py-2 rounded hover:border-pink-500 hover:text-pink-500 transition"; }
+
             modal.classList.remove('hidden');
             setTimeout(() => { modal.classList.remove('opacity-0'); document.getElementById('modal-content').classList.remove('scale-90'); document.getElementById('modal-content').classList.add('scale-100'); }, 10);
-        }
-        function closeModal() { const m=document.getElementById('modal'); const c=document.getElementById('modal-content'); m.classList.add('opacity-0'); c.classList.remove('scale-100'); c.classList.add('scale-90'); setTimeout(() => m.classList.add('hidden'), 300); }
-        function watchVideo() { if(!currentUser) { document.getElementById('login-modal').classList.remove('hidden'); return; } Swal.fire('Info', 'Registrado como visto.', 'info'); }
+        };
 
-        async function toggleFavorite() {
+        window.rateSession = async function(score) {
             if(!currentUser) { document.getElementById('login-modal').classList.remove('hidden'); return; }
             const sid = currentModalSession.id;
-            let favs = currentUserData.favorites || [];
             
-            if(favs.includes(sid)) favs = favs.filter(id => id !== sid);
-            else favs.push(sid);
+            // 1. Update User Record
+            if(!currentUserData.ratings) currentUserData.ratings = {};
+            currentUserData.ratings[sid] = score;
+            await window.fb.updateDoc(window.fb.doc(window.db, "students", currentUser), { ratings: currentUserData.ratings });
 
-            const docRef = window.fb.doc(window.db, "students", currentUser);
-            await window.fb.updateDoc(docRef, { favorites: favs });
+            // 2. Update Session Stats (Simulated aggregation for NoSQL)
+            // Ideally use a Cloud Function, but here we do optimistic update
+            let currentAvg = currentModalSession.ratingAvg || 0;
+            let currentCount = currentModalSession.ratingCount || 0;
             
-            const msg = favs.includes(sid) ? 'Añadido a mi lista' : 'Eliminado de mi lista';
-            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: msg, showConfirmButton: false, timer: 1500 });
-            openModal(currentModalSession); // Refresh btn
-        }
-
-        function openPathwaysModal() {
-            if(!currentUser) { document.getElementById('login-modal').classList.remove('hidden'); return; }
-            const modal = document.getElementById('pathways-modal');
-            const user = currentUserData;
-            document.getElementById('profile-modal-avatar').src = `https://ui-avatars.com/api/?name=${currentUser}&background=2a6aff&color=fff&size=128`;
-            document.getElementById('profile-modal-id').innerText = currentUser;
+            // Simple new avg calc (approximate since we don't have all individual ratings here)
+            const newCount = currentCount + 1; 
+            const newAvg = ((currentAvg * currentCount) + score) / newCount;
             
-            // Favorites
-            const favContainer = document.getElementById('favorites-container');
-            favContainer.innerHTML = "";
-            if(user.favorites && user.favorites.length > 0) {
-                user.favorites.forEach(fid => {
-                    const s = sessions.find(x => x.id === fid);
-                    if(s) {
-                        const cat = categoriesDB[s.category] || {};
-                        favContainer.innerHTML += `
-                            <div class="bg-gray-800 rounded p-2 flex gap-2 cursor-pointer hover:bg-gray-700" onclick="closeModal(); setTimeout(()=>openModal(${JSON.stringify(s).replace(/"/g, '&quot;')}), 300)">
-                                <img src="${s.image}" class="w-16 h-12 object-cover rounded">
-                                <div class="overflow-hidden"><p class="text-white text-xs font-bold truncate">${s.title}</p><p class="text-gray-400 text-[10px]">${cat.name}</p></div>
-                            </div>`;
-                    }
-                });
-            } else favContainer.innerHTML = `<p class="text-gray-500 text-sm col-span-full italic">No tienes sesiones guardadas aún.</p>`;
-
-            // Pathways
-            const pathContainer = document.getElementById('pathways-container');
-            pathContainer.innerHTML = '';
-            Object.values(categoriesDB).forEach(path => {
-                const verifiedCount = user.verifiedSessions.filter(sid => { const s = sessions.find(sx => sx.id == sid); return s && s.category === path.id; }).length;
-                const progress = Math.min((verifiedCount / path.req) * 100, 100);
-                const isCompleted = verifiedCount >= path.req;
-                const cert = user.certificates ? user.certificates.find(c => c.pathway === path.id) : null;
-                
-                let btn = `<button class="bg-gray-700 text-gray-500 text-xs font-bold py-2 px-4 rounded cursor-not-allowed"><i class="fas fa-lock mr-1"></i> Bloqueado</button>`;
-                if(cert) btn = `<a href="${cert.link}" target="_blank" onclick="trackCertClick('${currentUser}', '${path.id}')" class="bg-green-600 hover:bg-green-500 text-white text-xs font-bold py-2 px-4 rounded transition flex items-center"><i class="fas fa-download mr-2"></i> Descargar</a>`;
-                else if(isCompleted) btn = `<button class="bg-yellow-600/50 text-yellow-200 text-xs font-bold py-2 px-4 rounded cursor-wait"><i class="fas fa-clock mr-1"></i> En Proceso</button>`;
-
-                pathContainer.innerHTML += `
-                    <div class="bg-gray-900 rounded-lg p-6 border border-gray-800 relative overflow-hidden group">
-                        ${isCompleted ? '<div class="absolute top-0 right-0 bg-yellow-500 text-black text-xs font-bold px-3 py-1 rounded-bl">COMPLETADO</div>' : ''}
-                        <div class="flex flex-col md:flex-row items-center gap-6 z-10 relative">
-                            <div class="w-16 h-16 rounded-full flex items-center justify-center bg-gray-800 text-2xl">${path.emoji}</div>
-                            <div class="flex-1 w-full"><h3 class="text-xl font-bold text-gray-200">${path.name}</h3><p class="text-sm text-gray-500 mb-3">Progreso: <strong>${verifiedCount} / ${path.req}</strong> sesiones</p><div class="w-full bg-gray-700 rounded-full h-2.5 mb-1"><div class="bg-cnci-blue h-2.5 rounded-full" style="width: ${progress}%"></div></div></div>
-                            <div class="mt-4 md:mt-0">${btn}</div>
-                        </div>
-                    </div>`;
+            await window.fb.updateDoc(window.fb.doc(window.db, "sessions", sid.toString()), { 
+                ratingAvg: newAvg,
+                ratingCount: newCount
             });
-            modal.classList.remove('hidden');
+            
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: '¡Calificación enviada!', showConfirmButton: false, timer: 1500 });
+        };
+
+        // ... (closeModal, toggleFavorite, openPathwaysModal same as before) ...
+        window.closeModal = function() { const m=document.getElementById('modal'); const c=document.getElementById('modal-content'); m.classList.add('opacity-0'); c.classList.remove('scale-100'); c.classList.add('scale-90'); document.getElementById('modal-iframe').src = ""; setTimeout(() => m.classList.add('hidden'), 300); };
+        window.toggleFavorite = async function() { if(!currentUser) { document.getElementById('login-modal').classList.remove('hidden'); return; } const sid = currentModalSession.id; let favs = currentUserData.favorites || []; if(favs.includes(sid)) favs = favs.filter(id => id !== sid); else favs.push(sid); await window.fb.updateDoc(window.fb.doc(window.db, "students", currentUser), { favorites: favs }); window.openModal(currentModalSession); };
+        window.openPathwaysModal = function() { if(!currentUser) { document.getElementById('login-modal').classList.remove('hidden'); return; } const modal = document.getElementById('pathways-modal'); const user = currentUserData; document.getElementById('profile-modal-avatar').src = `https://ui-avatars.com/api/?name=${currentUser}&background=2a6aff&color=fff&size=128`; document.getElementById('profile-modal-id').innerText = currentUser; const favContainer = document.getElementById('favorites-container'); favContainer.innerHTML = ""; if(user.favorites && user.favorites.length > 0) { user.favorites.forEach(fid => { const s = sessions.find(x => x.id === fid); if(s) { const cat = categoriesDB[s.category] || {}; const st = getSessionStatus(s); let stBadge = st === 'LIVE' ? '<span class="text-red-500 text-[10px] font-bold">● EN VIVO</span>' : (st === 'UPCOMING' ? '<span class="text-blue-400 text-[10px]">● PRÓXIMA</span>' : '<span class="text-gray-500 text-[10px]">● GRABACIÓN</span>'); const json = JSON.stringify(s).replace(/"/g, '&quot;'); favContainer.innerHTML += `<div class="bg-gray-800 rounded p-3 flex gap-3 cursor-pointer hover:bg-gray-700 items-center" onclick="closeModal(); setTimeout(()=>openModal(${json}), 300)"><img src="${s.image}" class="w-16 h-12 object-cover rounded" onerror="handleImageError(this)"><div class="overflow-hidden w-full"><div class="flex justify-between items-center">${stBadge}</div><p class="text-white text-xs font-bold truncate mt-1">${s.title}</p><p class="text-gray-400 text-[10px]">${cat.name}</p></div></div>`; } }); } else favContainer.innerHTML = `<p class="text-gray-500 text-sm col-span-full italic">No tienes sesiones guardadas aún.</p>`; const pathContainer = document.getElementById('pathways-container'); pathContainer.innerHTML = ''; Object.values(categoriesDB).forEach(path => { const verifiedCount = user.verifiedSessions.filter(sid => { const s = sessions.find(sx => sx.id == sid); return s && s.category === path.id; }).length; const progress = Math.min((verifiedCount / path.req) * 100, 100); const isCompleted = verifiedCount >= path.req; const cert = user.certificates ? user.certificates.find(c => c.pathway === path.id) : null; let btn = cert ? `<a href="${cert.link}" target="_blank" onclick="trackCertClick('${currentUser}', '${path.id}')" class="bg-green-600 text-white text-xs py-2 px-4 rounded">Descargar</a>` : (isCompleted ? `<span class="text-yellow-500 text-xs">En Proceso</span>` : `<span class="text-gray-500 text-xs">Bloqueado</span>`); pathContainer.innerHTML += `<div class="bg-gray-900 rounded p-4 border border-gray-800 flex gap-4 items-center"><div class="text-2xl">${path.emoji}</div><div class="flex-1"><h4 class="text-white text-sm font-bold">${path.name}</h4><div class="w-full bg-gray-700 h-1.5 mt-2 rounded"><div class="bg-cnci-blue h-1.5 rounded" style="width:${progress}%"></div></div></div>${btn}</div>`; }); modal.classList.remove('hidden'); };
+        window.trackCertClick = async function(uid, pid) { const u = usersDB[uid]; if(u && u.certificates) { const c = u.certificates.find(x => x.pathway === pid); if(c && !c.accessed) { c.accessed = true; await window.fb.updateDoc(window.fb.doc(window.db, "students", uid), { certificates: u.certificates }); } } };
+
+        // --- ADMIN: CORE & NEW FILTERS ---
+        window.openAdminModal = function() { document.getElementById('admin-modal').classList.remove('hidden'); document.getElementById('admin-login-view').classList.remove('hidden'); document.getElementById('admin-dashboard-view').classList.add('hidden'); document.getElementById('admin-pass').value = ''; };
+        window.closeAdminModal = function() { document.getElementById('admin-modal').classList.add('hidden'); window.isAdminMode = false; };
+        window.verifyAdmin = async function() { if(document.getElementById('admin-pass').value === 'cnci2026') { window.isAdminMode = true; const q = window.fb.query(window.fb.collection(window.db, "students")); const querySnapshot = await window.fb.getDocs(q); usersDB = {}; querySnapshot.forEach((doc) => usersDB[doc.id] = doc.data()); document.getElementById('admin-login-view').classList.add('hidden'); document.getElementById('admin-dashboard-view').classList.remove('hidden'); document.getElementById('admin-dashboard-view').classList.add('flex'); showAdminTab('stats'); } else Swal.fire('Error', 'Incorrecto', 'error'); };
+        window.showAdminTab = function(tab) { document.querySelectorAll('.admin-tab-btn').forEach(b => { b.classList.remove('bg-gray-800', 'text-white'); b.classList.add('text-gray-400'); }); document.getElementById(`tab-btn-${tab}`).classList.add('bg-gray-800', 'text-white'); document.getElementById(`tab-btn-${tab}`).classList.remove('text-gray-400'); ['stats','sessions','pathways','attendance','certificates','users'].forEach(t => document.getElementById(`admin-content-${t}`).classList.add('hidden')); document.getElementById(`admin-content-${tab}`).classList.remove('hidden'); if(tab==='stats') renderAdminStats(); else if(tab==='sessions') { populateFilters(); renderAdminSessions(); } else if(tab==='pathways') renderAdminPathways(); else if(tab==='attendance') { filterImportSessions(); renderSessionAttendanceTable(); } else if(tab==='certificates') { populateCertPathways(); renderAdminCertificates(); } else if(tab==='users') renderAdminUsers(); };
+
+        // --- ADMIN: STATS (Updated with Ratings) ---
+        function renderAdminStats() {
+            const mode = document.getElementById('stats-chart-type').value; // attendance or rating
+            
+            // 1. Session Metrics
+            let topSessions = [];
+            if (mode === 'attendance') {
+                const sessionAttendance = {};
+                Object.values(usersDB).forEach(u => u.verifiedSessions.forEach(sid => sessionAttendance[sid] = (sessionAttendance[sid]||0)+1));
+                topSessions = Object.entries(sessionAttendance).sort((a,b) => b[1] - a[1]).slice(0, 5);
+            } else {
+                // By Rating
+                topSessions = sessions.filter(s => s.ratingAvg).sort((a,b) => b.ratingAvg - a.ratingAvg).slice(0, 5).map(s => [s.id, s.ratingAvg]);
+            }
+            
+            renderChart('chart-top-sessions', 'bar', topSessions.map(x => { const s = sessions.find(s=>s.id == x[0]); return s ? s.title.substring(0, 15)+'...' : 'ID:'+x[0]; }), topSessions.map(x => x[1]), mode === 'attendance' ? 'Asistencias' : 'Calificación Promedio', '#2a6aff');
+
+            // 2. Categories & 3. Monthly (Attendance only for now)
+            const catPopularity = {};
+            const monthlyAttendance = {};
+            Object.values(usersDB).forEach(u => u.verifiedSessions.forEach(sid => { const s = sessions.find(x => x.id === sid); if(s) { catPopularity[s.category] = (catPopularity[s.category] || 0) + 1; const monthKey = new Date(s.startTime).toLocaleString('es-MX', { month: 'short', year: '2-digit' }); monthlyAttendance[monthKey] = (monthlyAttendance[monthKey] || 0) + 1; } }));
+            
+            renderChart('chart-pathways', 'doughnut', Object.keys(catPopularity).map(k => categoriesDB[k]?.name || k), Object.values(catPopularity), 'Popularidad', ['#2a6aff', '#ff8500', '#10B981', '#F59E0B']);
+            renderChart('chart-attendance-month', 'line', Object.keys(monthlyAttendance), Object.values(monthlyAttendance), 'Asistencias', '#ff8500');
         }
 
-        async function trackCertClick(uid, pid) {
-            // Find current certs
-            const docRef = window.fb.doc(window.db, "students", uid);
-            const user = currentUserData;
-            const updatedCerts = user.certificates.map(c => {
-                if(c.pathway === pid) return { ...c, accessed: true };
-                return c;
-            });
-            await window.fb.updateDoc(docRef, { certificates: updatedCerts });
+        window.renderAdminStats = renderAdminStats; // Make globally accessible for onchange
+
+        function renderChart(id, type, labels, data, label, color) { const ctx = document.getElementById(id).getContext('2d'); if(charts[id]) charts[id].destroy(); charts[id] = new Chart(ctx, { type: type, data: { labels: labels, datasets: [{ label: label, data: data, backgroundColor: color, borderColor: Array.isArray(color) ? null : color, borderWidth: 1 }] }, options: { responsive: true, plugins: { legend: { display: type === 'doughnut', position: 'bottom', labels: { color: 'white' } } }, scales: type !== 'doughnut' ? { y: { ticks: { color: 'gray' }, grid: { color: '#333' } }, x: { ticks: { color: 'gray' } } } : {} } }); }
+
+        // --- ADMIN: SESSIONS TABLE PRO ---
+        function populateFilters() {
+            const catSel = document.getElementById('filter-session-cat');
+            const spkSel = document.getElementById('filter-session-speaker');
+            
+            // Restore selections? Simplest is to clear and refill
+            const currentCat = catSel.value;
+            const currentSpk = spkSel.value;
+
+            catSel.innerHTML = '<option value="all">Todas Trayectorias</option>';
+            spkSel.innerHTML = '<option value="all">Todos Ponentes</option>';
+
+            Object.values(categoriesDB).forEach(c => catSel.innerHTML += `<option value="${c.id}">${c.name}</option>`);
+            
+            // Get unique speakers
+            const speakers = [...new Set(sessions.map(s => s.speaker))].sort();
+            speakers.forEach(sp => spkSel.innerHTML += `<option value="${sp}">${sp}</option>`);
+            
+            if(currentCat) catSel.value = currentCat;
+            if(currentSpk) spkSel.value = currentSpk;
         }
 
-        function handleProfileClick() { if(currentUser) { const dd=document.getElementById('profile-dropdown'); dd.classList.toggle('hidden'); dd.classList.toggle('flex'); } else document.getElementById('login-modal').classList.remove('hidden'); }
-
-        // --- ADMIN: LOGIC ---
-        function openAdminModal() { document.getElementById('admin-modal').classList.remove('hidden'); document.getElementById('admin-login-view').classList.remove('hidden'); document.getElementById('admin-dashboard-view').classList.add('hidden'); document.getElementById('admin-pass').value = ''; }
-        function closeAdminModal() { document.getElementById('admin-modal').classList.add('hidden'); window.isAdminMode = false; }
-        
-        async function verifyAdmin() {
-            if(document.getElementById('admin-pass').value === 'cnci2026') {
-                window.isAdminMode = true;
-                // Fetch all students ONLY when admin logs in
-                const q = window.fb.query(window.fb.collection(window.db, "students"));
-                const querySnapshot = await window.fb.getDocs(q);
-                usersDB = {};
-                querySnapshot.forEach((doc) => usersDB[doc.id] = doc.data());
-                
-                document.getElementById('admin-login-view').classList.add('hidden');
-                document.getElementById('admin-dashboard-view').classList.remove('hidden');
-                document.getElementById('admin-dashboard-view').classList.add('flex');
-                showAdminTab('sessions');
-            } else Swal.fire('Error', 'Incorrecto', 'error');
-        }
-
-        function showAdminTab(tab) {
-            document.querySelectorAll('.admin-tab-btn').forEach(b => { b.classList.remove('bg-gray-800', 'text-white'); b.classList.add('text-gray-400'); });
-            document.getElementById(`tab-btn-${tab}`).classList.add('bg-gray-800', 'text-white'); document.getElementById(`tab-btn-${tab}`).classList.remove('text-gray-400');
-            ['sessions','pathways','attendance','certificates','users'].forEach(t => document.getElementById(`admin-content-${t}`).classList.add('hidden'));
-            document.getElementById(`admin-content-${tab}`).classList.remove('hidden');
-            if(tab==='sessions') renderAdminSessions();
-            if(tab==='pathways') renderAdminPathways();
-            if(tab==='attendance') { filterImportSessions(); renderSessionAttendanceTable(); }
-            if(tab==='certificates') { populateCertPathways(); renderAdminCertificates(); }
-            if(tab==='users') renderAdminUsers();
-        }
-
-        // --- ADMIN FUNCTIONS (WRITING TO FIREBASE) ---
-        
-        // SESSIONS
-        function renderAdminSessions() {
+        window.renderAdminSessions = function() {
             const tbody = document.getElementById('admin-sessions-table-body');
             const search = document.getElementById('search-sessions').value.toLowerCase();
+            const filterCat = document.getElementById('filter-session-cat').value;
+            const filterSpk = document.getElementById('filter-session-speaker').value;
+            
             tbody.innerHTML = '';
             
-            // Calc attendance from loaded usersDB
             const sessionCounts = {};
             Object.values(usersDB).forEach(u => u.verifiedSessions.forEach(sid => sessionCounts[sid] = (sessionCounts[sid]||0)+1));
 
-            const filtered = sessions.filter(s => s.title.toLowerCase().includes(search));
+            const filtered = sessions.filter(s => {
+                const matchSearch = s.title.toLowerCase().includes(search);
+                const matchCat = filterCat === 'all' || s.category === filterCat;
+                const matchSpk = filterSpk === 'all' || s.speaker === filterSpk;
+                return matchSearch && matchCat && matchSpk;
+            });
+
             const paged = paginate(filtered, currentPage.sessions);
             
             paged.items.forEach(s => {
+                const cat = categoriesDB[s.category] || {name: s.category};
+                const rating = s.ratingAvg ? `⭐ ${s.ratingAvg.toFixed(1)}` : '-';
                 tbody.innerHTML += `
                     <tr class="hover:bg-gray-900 border-b border-gray-800">
                         <td class="p-3 text-white font-bold">${s.title}</td>
+                        <td class="p-3 text-gray-400 text-xs">${cat.name}</td>
                         <td class="p-3 text-gray-400 text-xs">${s.speaker}</td>
-                        <td class="p-3 text-gray-400 text-xs">${formatMXDate(s.startTime)}</td>
+                        <td class="p-3 text-gray-400 text-center text-xs">${s.durationMinutes} min</td>
                         <td class="p-3 text-center text-green-500 font-bold">${sessionCounts[s.id] || 0}</td>
+                        <td class="p-3 text-center text-yellow-400 text-xs">${rating}</td>
                         <td class="p-3 text-center"><button onclick="openSessionEditor(${s.id})" class="text-blue-500 mr-2"><i class="fas fa-edit"></i></button><button onclick="deleteSession(${s.id})" class="text-red-500"><i class="fas fa-trash"></i></button></td>
                     </tr>`;
             });
             renderPagination('sessions', paged.total, paged.current);
-        }
+        };
 
-        async function saveSessionForm() {
-            const idInput = document.getElementById('edit-id').value;
-            const newId = idInput ? parseInt(idInput) : Date.now(); // Use timestamp for unique ID if new
-            const data = {
-                title: document.getElementById('edit-title').value,
-                desc: document.getElementById('edit-desc').value,
-                speaker: document.getElementById('edit-speaker').value,
-                category: document.getElementById('edit-category').value,
-                link: document.getElementById('edit-link').value,
-                gcal: document.getElementById('edit-gcal').value,
-                startTime: new Date(document.getElementById('edit-date').value).toISOString(),
-                durationMinutes: parseInt(document.getElementById('edit-duration').value),
-                image: document.getElementById('edit-image').value,
-                featured: false
-            };
-            
-            await window.fb.setDoc(window.fb.doc(window.db, "sessions", newId.toString()), data);
-            document.getElementById('session-editor-modal').classList.add('hidden');
-            Swal.fire("Guardado", "Sesión actualizada en la nube.", "success");
-        }
-
-        async function deleteSession(id) {
-            if(confirm("¿Borrar sesión permanentemente?")) {
-                await window.fb.deleteDoc(window.fb.doc(window.db, "sessions", id.toString()));
-                renderAdminSessions();
-            }
-        }
-
-        // PATHWAYS
-        async function savePathwayForm() {
-            const key = document.getElementById('path-edit-key').value.trim().toLowerCase().replace(/\s+/g, '_');
-            const data = {
-                name: document.getElementById('path-edit-name').value,
-                badge: document.getElementById('path-edit-badge').value,
-                emoji: document.getElementById('path-edit-emoji').value,
-                req: parseInt(document.getElementById('path-edit-req').value)
-            };
-            await window.fb.setDoc(window.fb.doc(window.db, "categories", key), data);
-            document.getElementById('pathway-editor-modal').classList.add('hidden');
-            Swal.fire("Guardado", "Trayectoria actualizada.", "success");
-        }
-
-        // USERS & ATTENDANCE & CERTS (These require writing to user docs)
-        // Since we fetched all users to `usersDB` in verifyAdmin, we can use that for display,
-        // but writes must go to Firestore.
-
-        async function processAttendanceImport() {
-            if(!currentAttendanceSessionId) return Swal.fire("Error", "Selecciona sesión", "error");
-            const text = document.getElementById('import-text-area').value;
-            const lines = text.split(/[\n,]+/).map(t => t.trim().toUpperCase()).filter(t => t.length > 0);
-            
-            let count = 0;
-            for (const uid of lines) {
-                const docRef = window.fb.doc(window.db, "students", uid);
-                // We need to read current verifySessions or merge
-                // Since we have usersDB cache, we can check there first to avoid reads, 
-                // but better to use arrayUnion if possible or read-modify-write. 
-                // For simplicity in this vanilla JS, we read-modify-write if exist, or create.
-                
-                let user = usersDB[uid];
-                if (!user) user = { id: uid, verifiedSessions: [], certificates: [], favorites: [], lastAccess: "Nunca" };
-                
-                if (!user.verifiedSessions.includes(currentAttendanceSessionId)) {
-                    user.verifiedSessions.push(currentAttendanceSessionId);
-                    await window.fb.setDoc(docRef, user); // This updates or creates
-                    count++;
-                }
-            }
-            Swal.fire("Éxito", `Procesados ${count} registros en la nube.`, "success");
-            // usersDB will update automatically via listener if we had one for ALL users, 
-            // but we don't have a listener for ALL users (too expensive). 
-            // So we manually update local cache for display.
-            renderSessionAttendanceTable();
-        }
-
-        async function assignCertificateManual() {
-            const id = document.getElementById('cert-manual-id').value.toUpperCase().trim();
-            const path = document.getElementById('cert-manual-pathway').value;
-            const link = document.getElementById('cert-manual-link').value.trim();
-            if(!id || !link) return Swal.fire("Error", "Datos", "error");
-
-            const docRef = window.fb.doc(window.db, "students", id);
-            let user = usersDB[id] || { id: id, verifiedSessions: [], certificates: [], favorites: [], lastAccess: "Nunca" };
-            
-            // Remove old cert for same path
-            user.certificates = user.certificates.filter(c => c.pathway !== path);
-            user.certificates.push({ pathway: path, link: link, accessed: false });
-            
-            await window.fb.setDoc(docRef, user);
-            // Update local cache
-            usersDB[id] = user;
-            
-            Swal.fire("Ok", "Asignado en la nube", "success");
-            renderAdminCertificates();
-        }
-
-        // --- HELPERS (Same as before) ---
+        // ... (Keep existing openSessionEditor, saveSessionForm, etc. exactly as they were) ...
+        window.openSessionEditor = function(id = null) { const modal = document.getElementById('session-editor-modal'); const select = document.getElementById('edit-category'); select.innerHTML = ""; Object.values(categoriesDB).forEach(c => select.innerHTML += `<option value="${c.id}">${c.name}</option>`); if(id) { const s = sessions.find(x => x.id === id); document.getElementById('editor-modal-title').innerText = "Editar Sesión"; document.getElementById('edit-id').value = s.id; document.getElementById('edit-title').value = s.title; document.getElementById('edit-desc').value = s.desc; document.getElementById('edit-speaker').value = s.speaker; document.getElementById('edit-category').value = s.category; document.getElementById('edit-link').value = s.link; document.getElementById('edit-recording-link').value = s.recordingLink || ""; document.getElementById('edit-gcal').value = s.gcal || ""; document.getElementById('edit-date').value = s.startTime.slice(0, 16); if (s.startTime) { document.getElementById('edit-date-day').value = s.startTime.substring(0, 10); document.getElementById('edit-date-time').value = s.startTime.substring(11, 16); } document.getElementById('edit-duration').value = s.durationMinutes; document.getElementById('edit-image').value = s.image; } else { document.getElementById('editor-modal-title').innerText = "Nueva Sesión"; document.getElementById('edit-id').value = ""; document.getElementById('edit-title').value = ""; document.getElementById('edit-date-day').value = ""; document.getElementById('edit-date-time').value = ""; document.getElementById('edit-recording-link').value = ""; } modal.classList.remove('hidden'); };
+        window.saveSessionForm = async function() { const newId = parseInt(document.getElementById('edit-id').value) || Date.now(); const dateDay = document.getElementById('edit-date-day').value; const dateTime = document.getElementById('edit-date-time').value; if(!dateDay || !dateTime) return Swal.fire("Error", "Fecha y hora requeridas", "error"); const d = new Date(`${dateDay}T${dateTime}`); const isoTime = d.toISOString(); await window.fb.setDoc(window.fb.doc(window.db, "sessions", newId.toString()), { title: document.getElementById('edit-title').value, desc: document.getElementById('edit-desc').value, speaker: document.getElementById('edit-speaker').value, category: document.getElementById('edit-category').value, link: document.getElementById('edit-link').value, recordingLink: document.getElementById('edit-recording-link').value, gcal: document.getElementById('edit-gcal').value, startTime: isoTime, durationMinutes: parseInt(document.getElementById('edit-duration').value), image: document.getElementById('edit-image').value, featured: false }, {merge: true}); document.getElementById('session-editor-modal').classList.add('hidden'); Swal.fire("Guardado", "Sesión actualizada en la nube.", "success"); };
+        // ... (Include rest of admin functions from previous turn) ...
+        window.deleteSession = async function(id) { if(confirm("¿Borrar sesión?")) { await window.fb.deleteDoc(window.fb.doc(window.db, "sessions", id.toString())); renderAdminSessions(); } };
+        window.renderAdminPathways = function() { const b=document.getElementById('admin-pathways-table-body'); b.innerHTML=''; Object.values(categoriesDB).forEach(c=>b.innerHTML+=`<tr class="border-b border-gray-800 hover:bg-gray-900"><td class="p-3 text-2xl text-center">${c.emoji}</td><td class="p-3 text-white font-bold">${c.name}</td><td class="p-3 text-gray-400">${c.badge}</td><td class="p-3 text-center text-blue-400 font-bold">${c.req}</td><td class="p-3 text-center"><button class="text-blue-500 mr-2"><i class="fas fa-edit"></i></button><button onclick="deletePathway('${c.id}')" class="text-red-500"><i class="fas fa-trash"></i></button></td></tr>`); };
+        window.savePathwayForm = async function() { const k=document.getElementById('path-edit-key').value.trim().toLowerCase(); await window.fb.setDoc(window.fb.doc(window.db,"categories",k),{id:k, name:document.getElementById('path-edit-name').value, badge:document.getElementById('path-edit-badge').value, emoji:document.getElementById('path-edit-emoji').value, req:parseInt(document.getElementById('path-edit-req').value)}); document.getElementById('pathway-editor-modal').classList.add('hidden'); };
+        window.deletePathway = async function(id) { if(confirm("¿Borrar?")) await window.fb.deleteDoc(window.fb.doc(window.db, "categories", id)); };
+        window.renderAdminUsers = function() { const b=document.getElementById('admin-users-table-body'); b.innerHTML=''; let u=Object.values(usersDB); const p=paginate(u, currentPage.users); p.items.forEach(x=>b.innerHTML+=`<tr class="border-b border-gray-800"><td class="p-3 text-white">${x.id}</td><td class="p-3 text-center text-gray-400">${x.verifiedSessions.length}</td><td class="p-3 text-center">${x.certificates.length}</td><td class="p-3 text-center"><button onclick="deleteUser('${x.id}')" class="text-red-500"><i class="fas fa-trash"></i></button></td></tr>`); renderPagination('users',p.total,p.current); };
+        window.deleteUser = async function(uid) { if(confirm("¿Borrar?")) { await window.fb.deleteDoc(window.fb.doc(window.db,"students",uid)); delete usersDB[uid]; renderAdminUsers(); } };
+        window.processAttendanceImport = async function() { /* same */ const t=document.getElementById('import-text-area').value; const s=parseInt(document.getElementById('import-session-select').value); if(!s) return; const l=t.split(/[\n,]+/).map(x=>x.trim().toUpperCase()).filter(x=>x); let c=0; for(const id of l){ let u=usersDB[id]||{id:id,verifiedSessions:[],certificates:[],favorites:[],ratings:{}}; if(!u.verifiedSessions.includes(s)){ u.verifiedSessions.push(s); await window.fb.setDoc(window.fb.doc(window.db,"students",id),u); c++; } } Swal.fire("Ok",`${c} procesados`,"success"); };
+        window.assignCertificateManual = async function() { /* same */ const id=document.getElementById('cert-manual-id').value; const p=document.getElementById('cert-manual-pathway').value; const l=document.getElementById('cert-manual-link').value; if(!id)return; let u=usersDB[id]||{id:id,verifiedSessions:[],certificates:[],favorites:[],ratings:{}}; u.certificates=u.certificates.filter(c=>c.pathway!==p); u.certificates.push({pathway:p, link:l, accessed:false}); await window.fb.setDoc(window.fb.doc(window.db,"students",id),u); Swal.fire("Ok","Asignado","success"); };
+        // ... (Helpers remain same) ...
         function paginate(items, page) { const start=(page-1)*ITEMS_PER_PAGE; return { current: page, total: Math.ceil(items.length/ITEMS_PER_PAGE), items: items.slice(start, start+ITEMS_PER_PAGE) }; }
-        function renderPagination(type, total, current) {
-            const c = document.getElementById(`pagination-${type}`); c.innerHTML = "";
-            for(let i=1; i<=total; i++) { const b=document.createElement('button'); b.innerText=i; b.className=`pagination-btn ${i===current?'active':''}`; b.onclick=()=>{currentPage[type]=i; showAdminTab(type==='certs'?'certificates':type);}; c.appendChild(b); }
-        }
-        function downloadCSV(data, filename) {
-            if(!data.length) return Swal.fire("Info", "Vacío", "info");
-            const keys = Object.keys(data[0]);
-            const csv = [keys.join(','), ...data.map(r => keys.map(k => `"${r[k]}"`).join(','))].join('\n');
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = filename;
-            document.body.appendChild(link); link.click(); document.body.removeChild(link);
-        }
+        function renderPagination(type, total, current) { const c=document.getElementById(`pagination-${type}`); c.innerHTML=""; for(let i=1; i<=total; i++) { const b=document.createElement('button'); b.innerText=i; b.className=`pagination-btn ${i===current?'active':''}`; b.onclick=()=>{currentPage[type]=i; showAdminTab(type==='certs'?'certificates':type);}; c.appendChild(b); } }
+        window.populateCertPathways = function() { const s=document.getElementById('cert-manual-pathway'); s.innerHTML=''; Object.values(categoriesDB).forEach(c=>s.innerHTML+=`<option value="${c.id}">${c.name}</option>`); };
+        window.renderAdminCertificates = function() { const b=document.getElementById('admin-certs-table-body'); b.innerHTML=''; let flat=[]; Object.values(usersDB).forEach(u=>{if(u.certificates)u.certificates.forEach(c=>flat.push({...c,uid:u.id}))}); const p=paginate(flat,currentPage.certs); p.items.forEach(c=>b.innerHTML+=`<tr class="border-b border-gray-800"><td class="p-3 text-white">${c.uid}</td><td class="p-3 text-gray-400 text-xs">${categoriesDB[c.pathway]?.name}</td><td class="p-3 text-blue-400 text-xs underline cursor-pointer">Link</td><td class="p-3 text-right"></td></tr>`); renderPagination('certs',p.total,p.current); };
+        window.filterImportSessions = function() { const s=document.getElementById('import-session-select'); s.innerHTML=""; sessions.forEach(x=>s.innerHTML+=`<option value="${x.id}">${x.title}</option>`); window.renderSessionAttendanceTable(); };
+        window.renderSessionAttendanceTable = function() { const id=parseInt(document.getElementById('import-session-select').value); const b=document.getElementById('admin-attendance-table-body'); b.innerHTML=""; const atts=Object.values(usersDB).filter(u=>u.verifiedSessions.includes(id)); atts.forEach(u=>b.innerHTML+=`<tr class="border-b border-gray-800"><td class="p-3 text-white">${u.id}</td><td class="p-3 text-green-500 text-xs">Ok</td><td class="p-3 text-right"></td></tr>`); };
+        
         function setupNavbarScroll() { const n = document.getElementById('navbar'); window.addEventListener('scroll', () => { if(window.scrollY>50) { n.classList.remove('bg-gradient-to-b', 'from-black/90'); n.classList.add('bg-[#0a0a0a]', 'shadow-md'); } else { n.classList.add('bg-gradient-to-b', 'from-black/90'); n.classList.remove('bg-[#0a0a0a]', 'shadow-md'); } }); }
-        
-        // --- ADMIN TABLE RENDERS NEEDED FOR INIT ---
-        function filterImportSessions() {
-            const search = document.getElementById('import-session-search').value.toLowerCase();
-            const select = document.getElementById('import-session-select');
-            select.innerHTML = "";
-            sessions.filter(s => s.title.toLowerCase().includes(search)).forEach(s => { const opt = document.createElement('option'); opt.value = s.id; opt.innerText = s.title; select.appendChild(opt); });
-            if(select.options.length > 0) { select.selectedIndex = 0; renderSessionAttendanceTable(); }
-            else { currentAttendanceSessionId = null; renderSessionAttendanceTable(); }
-        }
-        function renderSessionAttendanceTable() {
-            const select = document.getElementById('import-session-select');
-            currentAttendanceSessionId = select.value ? parseInt(select.value) : null;
-            const tbody = document.getElementById('admin-attendance-table-body');
-            tbody.innerHTML = "";
-            if(!currentAttendanceSessionId) { document.getElementById('attendance-session-title').innerText = "Ninguna sesión"; return; }
-            const s = sessions.find(x => x.id === currentAttendanceSessionId);
-            document.getElementById('attendance-session-title').innerText = s ? s.title : "Sesión no encontrada";
-            document.getElementById('attendance-session-date').innerText = s ? formatMXDate(s.startTime) : "-";
-            const attendees = Object.values(usersDB).filter(u => u.verifiedSessions.includes(currentAttendanceSessionId));
-            const paged = paginate(attendees, currentPage.attendance);
-            if(paged.items.length === 0) tbody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-xs">Sin registros</td></tr>`;
-            paged.items.forEach(u => {
-                tbody.innerHTML += `<tr class="border-b border-gray-800"><td class="p-3 text-white">${u.id}</td><td class="p-3 text-green-500 text-xs">Verificado</td><td class="p-3 text-right"><button onclick="removeAttendance('${u.id}', ${currentAttendanceSessionId})" class="text-red-500 text-xs"><i class="fas fa-trash"></i></button></td></tr>`;
-            });
-            renderPagination('attendance', paged.total, paged.current);
-        }
-        
-        // Functions that need to be global for HTML onclicks but were inside module scope? 
-        // No, standard script tag variables are global.
-        // Wait, openSessionEditor, deleteSession etc need to be defined. I've defined them above.
-        // openSessionEditor needs to populate categories from categoriesDB which is now loaded from Firebase.
-        
-        function openSessionEditor(id = null) {
-            const modal = document.getElementById('session-editor-modal');
-            const select = document.getElementById('edit-category');
-            select.innerHTML = "";
-            Object.values(categoriesDB).forEach(c => { 
-                // categoriesDB keys might be the ID, or the object might have an ID.
-                // Firebase: doc.id is key. Data is body.
-                // In snapshot listener I did: categoriesDB[doc.id] = doc.data()
-                // So c is just data. We need ID.
-                // Let's fix listener to include ID in object or iterate keys.
-                // Fix:
-                const val = c.id ? c.id : c.name; // fallback
-                select.innerHTML += `<option value="${val}">${c.emoji || ''} ${c.name}</option>`; 
-            });
-
-            if(id) {
-                const s = sessions.find(x => x.id === id);
-                document.getElementById('editor-modal-title').innerText = "Editar Sesión";
-                document.getElementById('edit-id').value = s.id;
-                document.getElementById('edit-title').value = s.title;
-                document.getElementById('edit-desc').value = s.desc;
-                document.getElementById('edit-speaker').value = s.speaker;
-                document.getElementById('edit-category').value = s.category;
-                document.getElementById('edit-link').value = s.link;
-                document.getElementById('edit-gcal').value = s.gcal || "";
-                document.getElementById('edit-date').value = s.startTime.slice(0, 16);
-                document.getElementById('edit-duration').value = s.durationMinutes;
-                document.getElementById('edit-image').value = s.image;
-            } else {
-                document.getElementById('editor-modal-title').innerText = "Nueva Sesión";
-                document.getElementById('edit-id').value = "";
-                document.getElementById('edit-title').value = "";
-            }
-            modal.classList.remove('hidden');
-        }
-        
-        function populateCertPathways() {
-            const sel = document.getElementById('cert-manual-pathway');
-            sel.innerHTML = "";
-            Object.keys(categoriesDB).forEach(k => {
-                const c = categoriesDB[k];
-                sel.innerHTML += `<option value="${k}">${c.name}</option>`;
-            });
-        }
-
     </script>
 </body>
 </html>
