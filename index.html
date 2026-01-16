@@ -28,38 +28,12 @@
         window.getEmbedUrl = function(input) {
             if (!input) return '';
             input = input.trim();
-            
-            // Case 0: Full iframe code pasted
-            if (input.includes('<iframe')) {
-                const match = input.match(/src="([^"]+)"/);
-                return match ? match[1] : '';
-            }
-
-            // Case 1: Already an embed URL
-            if (input.includes('youtube.com/embed/')) {
-                return input;
-            }
-
-            // Case 2: Standard watch URL (youtube.com/watch?v=ID)
-            if (input.includes('v=')) {
-                const videoId = input.split('v=')[1].split('&')[0];
-                return `https://www.youtube.com/embed/${videoId}`;
-            }
-
-            // Case 3: Short URL (youtu.be/ID)
-            if (input.includes('youtu.be/')) {
-                const videoId = input.split('youtu.be/')[1].split('?')[0];
-                return `https://www.youtube.com/embed/${videoId}`;
-            }
-            
-            // Case 4: Just the ID (e.g., srn6XsnkbIU) - Basic length check for YT IDs (usually 11 chars)
-            // Also handles if ID has query params attached
-            if (input.length > 5 && !input.includes('/') && !input.includes('.')) {
-                 const cleanId = input.split('?')[0]; 
-                 return `https://www.youtube.com/embed/${cleanId}`;
-            }
-
-            return input; // Fallback
+            if (input.includes('<iframe')) { const match = input.match(/src="([^"]+)"/); return match ? match[1] : ''; }
+            if (input.includes('youtube.com/embed/')) return input;
+            if (input.includes('v=')) { const videoId = input.split('v=')[1].split('&')[0]; return `https://www.youtube.com/embed/${videoId}`; }
+            if (input.includes('youtu.be/')) { const videoId = input.split('youtu.be/')[1].split('?')[0]; return `https://www.youtube.com/embed/${videoId}`; }
+            if (input.length > 5 && !input.includes('/') && !input.includes('.')) { const cleanId = input.split('?')[0]; return `https://www.youtube.com/embed/${cleanId}`; }
+            return input;
         };
     </script>
 
@@ -467,6 +441,21 @@
         let currentSearchQuery = "";
         window.charts = {};
 
+        // Youtube Helper
+        window.getEmbedUrl = function(url) {
+            if (!url) return '';
+            if (url.includes('embed')) return url;
+            if (url.includes('youtube.com/watch?v=')) {
+                const videoId = url.split('v=')[1].split('&')[0];
+                return `https://www.youtube.com/embed/${videoId}`;
+            }
+            if (url.includes('youtu.be/')) {
+                const videoId = url.split('youtu.be/')[1].split('?')[0];
+                return `https://www.youtube.com/embed/${videoId}`;
+            }
+            return url; 
+        };
+
         window.handleProfileClick = function() { if(currentUser) { const dd = document.getElementById('profile-dropdown'); dd.classList.toggle('hidden'); dd.classList.toggle('flex'); } else document.getElementById('login-modal').classList.remove('hidden'); };
         window.addEventListener('firebase-ready', init);
 
@@ -721,15 +710,65 @@
         function populateFilters() { const catSel = document.getElementById('filter-session-cat'); const spkSel = document.getElementById('filter-session-speaker'); const currentCat = catSel.value; const currentSpk = spkSel.value; catSel.innerHTML = '<option value="all">Todas Trayectorias</option>'; spkSel.innerHTML = '<option value="all">Todos Ponentes</option>'; Object.values(categoriesDB).forEach(c => catSel.innerHTML += `<option value="${c.id}">${c.name}</option>`); const speakers = [...new Set(sessions.map(s => s.speaker))].sort(); speakers.forEach(sp => spkSel.innerHTML += `<option value="${sp}">${sp}</option>`); if(currentCat) catSel.value = currentCat; if(currentSpk) spkSel.value = currentSpk; }
         window.renderAdminSessions = function() { const tbody = document.getElementById('admin-sessions-table-body'); const search = document.getElementById('search-sessions').value.toLowerCase(); const filterCat = document.getElementById('filter-session-cat').value; const filterSpk = document.getElementById('filter-session-speaker').value; tbody.innerHTML = ''; const sessionCounts = {}; Object.values(usersDB).forEach(u => u.verifiedSessions.forEach(sid => sessionCounts[sid] = (sessionCounts[sid]||0)+1)); const filtered = sessions.filter(s => { const matchSearch = s.title.toLowerCase().includes(search); const matchCat = filterCat === 'all' || s.category === filterCat; const matchSpk = filterSpk === 'all' || s.speaker === filterSpk; return matchSearch && matchCat && matchSpk; }); const paged = paginate(filtered, currentPage.sessions); paged.items.forEach(s => { const cat = categoriesDB[s.category] || {name: s.category}; const rating = s.ratingAvg ? `⭐ ${s.ratingAvg.toFixed(1)}` : '-'; tbody.innerHTML += `<tr class="hover:bg-gray-900 border-b border-gray-800"><td class="p-3 text-white font-bold">${s.title}</td><td class="p-3 text-gray-400 text-xs">${cat.name}</td><td class="p-3 text-gray-400 text-xs">${s.speaker}</td><td class="p-3 text-gray-400 text-center text-xs">${s.durationMinutes} min</td><td class="p-3 text-center text-green-500 font-bold">${sessionCounts[s.id] || 0}</td><td class="p-3 text-center text-yellow-400 text-xs">${rating}</td><td class="p-3 text-center"><button onclick="openSessionEditor(${s.id})" class="text-blue-500 mr-2"><i class="fas fa-edit"></i></button><button onclick="deleteSession(${s.id})" class="text-red-500"><i class="fas fa-trash"></i></button></td></tr>`; }); renderPagination('sessions', paged.total, paged.current); };
         
-        window.openSessionEditor = function(id = null) { const modal = document.getElementById('session-editor-modal'); const selectCat = document.getElementById('edit-category'); const selectType = document.getElementById('edit-type'); selectCat.innerHTML = ""; Object.values(categoriesDB).forEach(c => selectCat.innerHTML += `<option value="${c.id}">${c.name}</option>`); selectType.innerHTML = ""; Object.values(sessionTypesDB).forEach(t => selectType.innerHTML += `<option value="${t.id}">${t.name}</option>`); if(id) { const s = sessions.find(x => x.id === id); document.getElementById('editor-modal-title').innerText = "Editar Sesión"; document.getElementById('edit-id').value = s.id; document.getElementById('edit-title').value = s.title; document.getElementById('edit-desc').value = s.desc; document.getElementById('edit-speaker').value = s.speaker; document.getElementById('edit-category').value = s.category; document.getElementById('edit-type').value = s.typeId || (Object.keys(sessionTypesDB)[0] || ""); document.getElementById('edit-link').value = s.link; document.getElementById('edit-recording-link').value = s.recordingLink || ""; document.getElementById('edit-gcal').value = s.gcal || ""; document.getElementById('edit-date').value = s.startTime.slice(0, 16); if (s.startTime) { document.getElementById('edit-date-day').value = s.startTime.substring(0, 10); document.getElementById('edit-date-time').value = s.startTime.substring(11, 16); } document.getElementById('edit-duration').value = s.durationMinutes; document.getElementById('edit-image').value = s.image; } else { document.getElementById('editor-modal-title').innerText = "Nueva Sesión"; document.getElementById('edit-id').value = ""; document.getElementById('edit-title').value = ""; document.getElementById('edit-date-day').value = ""; document.getElementById('edit-date-time').value = ""; document.getElementById('edit-recording-link').value = ""; document.getElementById('edit-gcal').value = ""; } modal.classList.remove('hidden'); };
+        window.openSessionEditor = function(id = null) { 
+            const modal = document.getElementById('session-editor-modal'); 
+            const selectCat = document.getElementById('edit-category'); 
+            const selectType = document.getElementById('edit-type'); 
+            selectCat.innerHTML = ""; 
+            Object.values(categoriesDB).forEach(c => selectCat.innerHTML += `<option value="${c.id}">${c.name}</option>`); 
+            selectType.innerHTML = ""; 
+            Object.values(sessionTypesDB).forEach(t => selectType.innerHTML += `<option value="${t.id}">${t.name}</option>`); 
+            
+            if(id) { 
+                const s = sessions.find(x => x.id === id); 
+                document.getElementById('editor-modal-title').innerText = "Editar Sesión"; 
+                document.getElementById('edit-id').value = s.id; 
+                document.getElementById('edit-title').value = s.title; 
+                document.getElementById('edit-desc').value = s.desc; 
+                document.getElementById('edit-speaker').value = s.speaker; 
+                document.getElementById('edit-category').value = s.category; 
+                document.getElementById('edit-type').value = s.typeId || (Object.keys(sessionTypesDB)[0] || ""); 
+                document.getElementById('edit-link').value = s.link; 
+                document.getElementById('edit-recording-link').value = s.recordingLink || ""; 
+                document.getElementById('edit-gcal').value = s.gcal || ""; 
+                
+                // FECHA LOCAL: Convertir ISO a formato local YYYY-MM-DD y HH:MM para los inputs
+                if (s.startTime) { 
+                    const d = new Date(s.startTime);
+                    // Ajuste simple a fecha local
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    const hours = String(d.getHours()).padStart(2, '0');
+                    const mins = String(d.getMinutes()).padStart(2, '0');
+                    
+                    document.getElementById('edit-date-day').value = `${year}-${month}-${day}`; 
+                    document.getElementById('edit-date-time').value = `${hours}:${mins}`;
+                }
+                
+                document.getElementById('edit-duration').value = s.durationMinutes; 
+                document.getElementById('edit-image').value = s.image; 
+            } else { 
+                document.getElementById('editor-modal-title').innerText = "Nueva Sesión"; 
+                document.getElementById('edit-id').value = ""; 
+                document.getElementById('edit-title').value = ""; 
+                document.getElementById('edit-date-day').value = ""; 
+                document.getElementById('edit-date-time').value = ""; 
+                document.getElementById('edit-recording-link').value = ""; 
+                document.getElementById('edit-gcal').value = ""; 
+            } 
+            modal.classList.remove('hidden'); 
+        };
+
         window.saveSessionForm = async function() { 
             const newId = parseInt(document.getElementById('edit-id').value) || Date.now(); 
             const dateDay = document.getElementById('edit-date-day').value; 
             const dateTime = document.getElementById('edit-date-time').value; 
             if(!dateDay || !dateTime) return Swal.fire("Error", "Fecha y hora requeridas", "error"); 
+            
+            // Crear fecha local y convertir a ISO
             const d = new Date(`${dateDay}T${dateTime}`); 
             const isoTime = d.toISOString(); 
-            // Auto-convert recording link to embed
             const recLink = window.getEmbedUrl(document.getElementById('edit-recording-link').value);
             
             await window.fb.setDoc(window.fb.doc(window.db, "sessions", newId.toString()), { 
