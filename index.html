@@ -15,8 +15,51 @@
         window.toggleNotifications = function() {
             const dd = document.getElementById('notification-dropdown');
             const badge = document.getElementById('notif-badge');
-            if(dd.classList.contains('hidden')) { if(typeof renderNotifications === 'function') renderNotifications(); dd.classList.remove('hidden'); badge.classList.add('hidden'); } 
-            else { dd.classList.add('hidden'); }
+            if(dd.classList.contains('hidden')) { 
+                if(typeof renderNotifications === 'function') renderNotifications(); 
+                dd.classList.remove('hidden'); 
+                badge.classList.add('hidden');
+            } else { 
+                dd.classList.add('hidden'); 
+            }
+        };
+
+        // ROBUST YOUTUBE LINK PARSER
+        window.getEmbedUrl = function(input) {
+            if (!input) return '';
+            input = input.trim();
+            
+            // Case 0: Full iframe code pasted
+            if (input.includes('<iframe')) {
+                const match = input.match(/src="([^"]+)"/);
+                return match ? match[1] : '';
+            }
+
+            // Case 1: Already an embed URL
+            if (input.includes('youtube.com/embed/')) {
+                return input;
+            }
+
+            // Case 2: Standard watch URL (youtube.com/watch?v=ID)
+            if (input.includes('v=')) {
+                const videoId = input.split('v=')[1].split('&')[0];
+                return `https://www.youtube.com/embed/${videoId}`;
+            }
+
+            // Case 3: Short URL (youtu.be/ID)
+            if (input.includes('youtu.be/')) {
+                const videoId = input.split('youtu.be/')[1].split('?')[0];
+                return `https://www.youtube.com/embed/${videoId}`;
+            }
+            
+            // Case 4: Just the ID (e.g., srn6XsnkbIU) - Basic length check for YT IDs (usually 11 chars)
+            // Also handles if ID has query params attached
+            if (input.length > 5 && !input.includes('/') && !input.includes('.')) {
+                 const cleanId = input.split('?')[0]; 
+                 return `https://www.youtube.com/embed/${cleanId}`;
+            }
+
+            return input; // Fallback
         };
     </script>
 
@@ -29,12 +72,20 @@
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&display=swap');
-        :root { --primary-blue: #2a6aff; --accent-orange: #ff8500; --success-green: #10B981; }
+        
+        :root {
+            --primary-blue: #2a6aff;
+            --accent-orange: #ff8500;
+            --success-green: #10B981;
+        }
+
         body { font-family: 'Montserrat', sans-serif; background-color: #0a0a0a; color: white; overflow-x: hidden; }
+        
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #1a1a1a; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #555; }
+
         .hide-scroll-bar::-webkit-scrollbar { display: none; }
         .hide-scroll-bar { -ms-overflow-style: none; scrollbar-width: none; }
         .movie-card { transition: transform 0.3s ease, z-index 0.3s ease, box-shadow 0.3s ease; cursor: pointer; }
@@ -60,6 +111,7 @@
         .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
         .time-chip { font-size: 0.7rem; background: #333; padding: 2px 6px; border-radius: 4px; cursor: pointer; border: 1px solid #444; }
         .time-chip:hover { background: #2a6aff; border-color: #2a6aff; }
+        
         .star-rating { direction: rtl; display: inline-flex; }
         .star-rating input { display: none; }
         .star-rating label { color: #444; font-size: 1.5rem; padding: 0 2px; cursor: pointer; transition: color 0.2s; }
@@ -90,7 +142,6 @@
                 <div class="hidden md:flex gap-6 text-sm text-gray-300 font-medium">
                     <a href="#" class="hover:text-cnci-blue transition">Inicio</a>
                     <a href="#recordings-anchor" class="hover:text-cnci-blue transition">Biblioteca</a>
-                    <!-- Nuevo Botón "Qué son las Trayectorias" -->
                     <a href="javascript:void(0)" onclick="openAboutModal()" class="text-cnci-orange hover:text-white transition cursor-pointer font-bold"><i class="fas fa-info-circle mr-1"></i> ¿Qué son las Trayectorias?</a>
                 </div>
             </div>
@@ -273,29 +324,23 @@
                     <div class="grid md:grid-cols-2 gap-6">
                         <div class="bg-gray-900 p-4 rounded border border-gray-800"><div class="flex justify-between mb-4"><h3 class="text-sm font-bold text-gray-400">Top Sesiones</h3><select id="stats-chart-type" onchange="renderAdminStats()" class="bg-black border border-gray-700 text-xs rounded text-white p-1"><option value="attendance">Por Asistencia</option><option value="rating">Por Calificación</option></select></div><canvas id="chart-top-sessions"></canvas></div>
                         <div class="bg-gray-900 p-4 rounded border border-gray-800"><h3 class="text-sm font-bold text-gray-400 mb-4">Trayectorias</h3><div class="w-2/3 mx-auto"><canvas id="chart-pathways"></canvas></div></div>
+                        <div class="bg-gray-900 p-4 rounded border border-gray-800 col-span-full"><h3 class="text-sm font-bold text-gray-400 mb-4">Asistencias por Mes</h3><canvas id="chart-attendance-month"></canvas></div>
                     </div>
                 </div>
                 
                 <div id="admin-content-sessions" class="hidden flex-1 p-6 overflow-y-auto bg-[#121212]">
                     <div class="flex justify-between items-center mb-4"><h2 class="text-xl font-bold">Sesiones</h2><button onclick="openSessionEditor()" class="bg-cnci-blue px-3 py-1.5 rounded text-sm font-bold hover:bg-blue-600">Nueva</button></div>
-                    <div class="flex gap-4 mb-4 flex-wrap"><input type="text" id="search-sessions" onkeyup="renderAdminSessions()" placeholder="Buscar..." class="bg-black border border-gray-700 text-white rounded px-3 py-1.5 text-sm w-48 focus:border-cnci-blue outline-none"><select id="filter-session-cat" onchange="renderAdminSessions()" class="bg-black border border-gray-700 text-white rounded px-3 py-1.5 text-sm outline-none"><option value="all">Todas Trayectorias</option></select></div>
-                    <div class="bg-black rounded border border-gray-800 overflow-hidden"><table class="w-full text-left text-sm text-gray-400"><thead class="bg-gray-900 text-gray-200 uppercase font-bold text-xs"><tr><th class="p-3">Título</th><th class="p-3">Trayectoria</th><th class="p-3">Ponente</th><th class="p-3 text-center">Acciones</th></tr></thead><tbody class="divide-y divide-gray-800" id="admin-sessions-table-body"></tbody></table></div>
+                    <div class="flex gap-4 mb-4 flex-wrap"><input type="text" id="search-sessions" onkeyup="renderAdminSessions()" placeholder="Buscar..." class="bg-black border border-gray-700 text-white rounded px-3 py-1.5 text-sm w-48 focus:border-cnci-blue outline-none"><select id="filter-session-cat" onchange="renderAdminSessions()" class="bg-black border border-gray-700 text-white rounded px-3 py-1.5 text-sm outline-none"><option value="all">Todas Trayectorias</option></select><select id="filter-session-speaker" onchange="renderAdminSessions()" class="bg-black border border-gray-700 text-white rounded px-3 py-1.5 text-sm outline-none"><option value="all">Todos Ponentes</option></select></div>
+                    <div class="bg-black rounded border border-gray-800 overflow-hidden"><table class="w-full text-left text-sm text-gray-400"><thead class="bg-gray-900 text-gray-200 uppercase font-bold text-xs"><tr><th class="p-3">Título</th><th class="p-3">Trayectoria</th><th class="p-3">Ponente</th><th class="p-3 text-center">Duración</th><th class="p-3 text-center">Asist.</th><th class="p-3 text-center">Rating</th><th class="p-3 text-center">Acciones</th></tr></thead><tbody class="divide-y divide-gray-800" id="admin-sessions-table-body"></tbody></table><div class="p-3 bg-gray-900 flex justify-center" id="pagination-sessions"></div></div>
                 </div>
 
-                <!-- CONFIGURACIÓN HOME -->
                 <div id="admin-content-config" class="hidden flex-1 p-6 overflow-y-auto bg-[#121212]">
                     <h2 class="text-xl font-bold mb-4">Configuración General</h2>
                     <div class="bg-gray-900 p-6 rounded-lg border border-gray-800 max-w-2xl">
                         <h3 class="text-lg font-bold text-cnci-blue mb-4">Modal: ¿Qué son las Trayectorias?</h3>
                         <div class="space-y-4">
-                            <div>
-                                <label class="text-xs text-gray-400 block mb-1">Enlace Video YouTube (Embed)</label>
-                                <input type="text" id="conf-about-video" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm" placeholder="https://www.youtube.com/embed/...">
-                            </div>
-                            <div>
-                                <label class="text-xs text-gray-400 block mb-1">Texto Explicativo</label>
-                                <textarea id="conf-about-text" rows="6" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm" placeholder="Descripción de las trayectorias..."></textarea>
-                            </div>
+                            <div><label class="text-xs text-gray-400 block mb-1">Enlace Video YouTube</label><input type="text" id="conf-about-video" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm" placeholder="Pega el enlace aquí (cualquier formato)"></div>
+                            <div><label class="text-xs text-gray-400 block mb-1">Texto Explicativo</label><textarea id="conf-about-text" rows="6" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm" placeholder="Descripción..."></textarea></div>
                             <button onclick="saveSiteConfig()" class="bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-500">Guardar Cambios</button>
                         </div>
                     </div>
@@ -306,12 +351,12 @@
                     <div class="bg-black rounded border border-gray-800 overflow-hidden"><table class="w-full text-left text-sm text-gray-400"><thead class="bg-gray-900 text-gray-200 uppercase font-bold text-xs"><tr><th class="p-3">Nombre Sección</th><th class="p-3 text-center">Estado</th><th class="p-3 text-center">Acciones</th></tr></thead><tbody class="divide-y divide-gray-800" id="admin-sections-table-body"></tbody></table></div>
                 </div>
                 
-                <div id="admin-content-pathways" class="hidden flex-1 p-6 overflow-y-auto bg-[#121212]"><div class="flex justify-between items-center mb-4"><h2 class="text-xl font-bold">Trayectorias (Insignias)</h2><button onclick="openPathwayEditor()" class="bg-cnci-blue px-3 py-1.5 rounded text-sm font-bold hover:bg-blue-600">Nueva</button></div><div class="bg-black rounded border border-gray-800 overflow-hidden"><table class="w-full text-left text-sm text-gray-400"><thead class="bg-gray-900 text-gray-200 uppercase font-bold text-xs"><tr><th class="p-3">Emoji</th><th class="p-3">Nombre</th><th class="p-3">Insignia</th><th class="p-3 text-center">Acciones</th></tr></thead><tbody class="divide-y divide-gray-800" id="admin-pathways-table-body"></tbody></table></div></div>
+                <div id="admin-content-pathways" class="hidden flex-1 p-6 overflow-y-auto bg-[#121212]"><div class="flex justify-between items-center mb-4"><h2 class="text-xl font-bold">Trayectorias (Insignias)</h2><button onclick="openPathwayEditor()" class="bg-cnci-blue px-3 py-1.5 rounded text-sm font-bold hover:bg-blue-600">Nueva</button></div><div class="bg-black rounded border border-gray-800 overflow-hidden"><table class="w-full text-left text-sm text-gray-400"><thead class="bg-gray-900 text-gray-200 uppercase font-bold text-xs"><tr><th class="p-3">Emoji</th><th class="p-3">Nombre</th><th class="p-3">Insignia</th><th class="p-3 text-center">Req.</th><th class="p-3 text-center">Acciones</th></tr></thead><tbody class="divide-y divide-gray-800" id="admin-pathways-table-body"></tbody></table></div></div>
                 
-                <div id="admin-content-users" class="hidden flex-1 p-6 overflow-y-auto bg-[#121212]"><div class="flex justify-between items-center mb-4"><h2 class="text-xl font-bold">Alumnos</h2><button onclick="addUserManual()" class="bg-cnci-blue px-3 py-1.5 rounded text-sm font-bold hover:bg-blue-600">Añadir</button></div><div class="bg-black rounded border border-gray-800 overflow-hidden"><table class="w-full text-left text-sm text-gray-400"><thead class="bg-gray-900 text-gray-200 uppercase font-bold text-xs"><tr><th class="p-3">Matrícula</th><th class="p-3 text-center">Asist.</th><th class="p-3 text-center">Acciones</th></tr></thead><tbody class="divide-y divide-gray-800" id="admin-users-table-body"></tbody></table></div></div>
+                <div id="admin-content-users" class="hidden flex-1 p-6 overflow-y-auto bg-[#121212]"><div class="flex justify-between items-center mb-4"><h2 class="text-xl font-bold">Alumnos</h2><div class="flex gap-2"><button onclick="downloadUsersCSV()" class="bg-green-700 px-3 py-1.5 rounded text-sm font-bold hover:bg-green-600">Exportar</button><button onclick="addUserManual()" class="bg-cnci-blue px-3 py-1.5 rounded text-sm font-bold hover:bg-blue-600">Añadir</button></div></div><div class="flex gap-4 mb-4"><input type="text" id="search-users" onkeyup="renderAdminUsers()" placeholder="Buscar matrícula..." class="bg-black border border-gray-700 text-white rounded px-3 py-1.5 text-sm w-64 focus:border-cnci-blue outline-none"><select id="filter-users-status" onchange="renderAdminUsers()" class="bg-black border border-gray-700 text-gray-300 rounded px-2 py-1.5 text-sm"><option value="all">Todos</option><option value="with_certs">Con Constancias</option></select></div><div class="bg-black rounded border border-gray-800 overflow-hidden"><table class="w-full text-left text-sm text-gray-400"><thead class="bg-gray-900 text-gray-200 uppercase font-bold text-xs"><tr><th class="p-3">Matrícula</th><th class="p-3 text-center">Asist.</th><th class="p-3 text-center">Const.</th><th class="p-3 text-center">Acciones</th></tr></thead><tbody class="divide-y divide-gray-800" id="admin-users-table-body"></tbody></table><div class="p-3 bg-gray-900 flex justify-center" id="pagination-users"></div></div></div>
                 
-                <div id="admin-content-attendance" class="hidden flex-1 p-6 overflow-y-auto bg-[#121212]"><h2 class="text-xl font-bold mb-4">Importar Asistencias</h2><div class="grid md:grid-cols-2 gap-6"><div class="space-y-4 bg-gray-900 p-4 rounded border border-gray-800"><label class="text-xs text-gray-400 block mb-1">Sesión</label><select id="import-session-select" onchange="renderSessionAttendanceTable()" class="w-full bg-black border border-gray-700 text-white rounded p-2 text-sm mb-4"></select><textarea id="import-text-area" rows="3" class="w-full bg-black border border-gray-700 text-white rounded p-2 text-xs font-mono mb-2" placeholder="AL001, AL002..."></textarea><button onclick="processAttendanceImport()" class="w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-500 text-sm">Validar</button></div><div class="bg-black rounded border border-gray-800 overflow-hidden"><table class="w-full text-left text-sm text-gray-400"><thead class="bg-gray-900 text-gray-200 uppercase font-bold text-xs"><tr><th class="p-3">Alumno</th><th class="p-3 text-right">Acciones</th></tr></thead><tbody class="divide-y divide-gray-800" id="admin-attendance-table-body"></tbody></table></div></div></div>
-                <div id="admin-content-certificates" class="hidden flex-1 p-6 overflow-y-auto bg-[#121212]"><h2 class="text-xl font-bold mb-4">Constancias</h2><div class="grid md:grid-cols-2 gap-6 mb-6"><div class="bg-gray-900 p-4 rounded border border-gray-800"><h3 class="text-sm font-bold text-cnci-orange mb-2">Manual</h3><div class="space-y-2"><input type="text" id="cert-manual-id" class="w-full bg-black border border-gray-700 rounded p-2 text-white text-xs mb-2" placeholder="Matrícula"><select id="cert-manual-pathway" class="w-full bg-black border border-gray-700 rounded p-2 text-white text-xs mb-2"></select><input type="text" id="cert-manual-link" class="w-full bg-black border border-gray-700 rounded p-2 text-white text-xs mb-2" placeholder="Link"><button onclick="assignCertificateManual()" class="w-full bg-cnci-blue py-1.5 rounded font-bold text-xs">Asignar</button></div></div></div><div class="bg-black rounded border border-gray-800 overflow-hidden"><table class="w-full text-left text-sm text-gray-400"><thead class="bg-gray-900 text-gray-200 uppercase font-bold text-xs"><tr><th class="p-3">Alumno</th><th class="p-3">Trayectoria</th><th class="p-3 text-right">Acciones</th></tr></thead><tbody class="divide-y divide-gray-800" id="admin-certs-table-body"></tbody></table></div></div>
+                <div id="admin-content-attendance" class="hidden flex-1 p-6 overflow-y-auto bg-[#121212]"><h2 class="text-xl font-bold mb-4">Importar Asistencias</h2><div class="grid md:grid-cols-3 gap-6"><div class="md:col-span-1 space-y-4 bg-gray-900 p-4 rounded border border-gray-800"><label class="text-xs text-gray-400 block mb-1">Sesión</label><input type="text" id="import-session-search" onkeyup="filterImportSessions()" placeholder="Buscar..." class="w-full bg-black border border-gray-700 text-white rounded p-2 text-sm mb-2"><select id="import-session-select" onchange="renderSessionAttendanceTable()" class="w-full bg-black border border-gray-700 text-white rounded p-2 text-sm mb-4" size="5"></select><hr class="border-gray-800 mb-4"><label class="text-xs text-gray-400 block mb-1">Matrículas</label><div class="mb-2"><input type="file" id="import-csv-file" accept=".csv,.txt" class="block w-full text-xs text-gray-400"/></div><textarea id="import-text-area" rows="3" class="w-full bg-black border border-gray-700 text-white rounded p-2 text-xs font-mono mb-2" placeholder="AL001, AL002..."></textarea><button onclick="processAttendanceImport()" class="w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-500 text-sm">Validar</button></div><div class="md:col-span-2"><div class="flex justify-between items-center mb-2 bg-gray-900 p-3 rounded border border-gray-800"><div><h3 class="font-bold text-sm text-white" id="attendance-session-title">Selecciona una sesión</h3></div></div><div class="bg-black rounded border border-gray-800 overflow-hidden"><table class="w-full text-left text-sm text-gray-400"><thead class="bg-gray-900 text-gray-200 uppercase font-bold text-xs"><tr><th class="p-3">Alumno</th><th class="p-3">Estado</th><th class="p-3 text-right">Acciones</th></tr></thead><tbody class="divide-y divide-gray-800" id="admin-attendance-table-body"></tbody></table><div class="p-3 bg-gray-900 flex justify-center" id="pagination-attendance"></div></div></div></div></div>
+                <div id="admin-content-certificates" class="hidden flex-1 p-6 overflow-y-auto bg-[#121212]"><h2 class="text-xl font-bold mb-4">Constancias</h2><div class="grid md:grid-cols-3 gap-6 mb-6"><div class="bg-gray-900 p-4 rounded border border-gray-800"><h3 class="text-sm font-bold text-cnci-orange mb-2">Manual</h3><div class="space-y-2"><input type="text" id="cert-manual-id" class="w-full bg-black border border-gray-700 rounded p-2 text-white text-xs mb-2" placeholder="Matrícula"><select id="cert-manual-pathway" class="w-full bg-black border border-gray-700 rounded p-2 text-white text-xs mb-2"></select><input type="text" id="cert-manual-link" class="w-full bg-black border border-gray-700 rounded p-2 text-white text-xs mb-2" placeholder="Link"><button onclick="assignCertificateManual()" class="w-full bg-cnci-blue py-1.5 rounded font-bold text-xs">Asignar</button></div></div><div class="bg-gray-900 p-4 rounded border border-gray-800"><h3 class="text-sm font-bold text-green-500 mb-2">CSV Masivo</h3><p class="text-[10px] text-gray-400 mb-2">Fmt: <code>Matrícula,ID_Trayectoria,Link</code></p><input type="file" id="cert-csv-file" accept=".csv, .txt" class="block w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:bg-gray-700 file:text-white mb-2"/><button onclick="processCertificateCSV()" class="w-full bg-green-600 py-1.5 rounded font-bold hover:bg-green-500 text-xs">Procesar</button></div><div class="bg-gray-900 p-4 rounded border border-gray-800 flex flex-col justify-center items-center"><h3 class="text-sm font-bold text-white mb-2">Reportes</h3><button onclick="exportCertificatesCSV()" class="bg-gray-700 w-full py-2 rounded text-xs hover:bg-gray-600 mb-2"><i class="fas fa-file-csv"></i> Exportar Todo</button></div></div><div class="bg-black rounded border border-gray-800 overflow-hidden"><table class="w-full text-left text-sm text-gray-400"><thead class="bg-gray-900 text-gray-200 uppercase font-bold text-xs"><tr><th class="p-3">Alumno</th><th class="p-3">Trayectoria</th><th class="p-3">Link</th><th class="p-3 text-right">Acciones</th></tr></thead><tbody class="divide-y divide-gray-800" id="admin-certs-table-body"></tbody></table><div class="p-3 bg-gray-900 flex justify-center" id="pagination-certs"></div></div></div>
             </div>
         </div>
     </div>
@@ -322,14 +367,14 @@
             <h3 class="text-xl font-bold text-white mb-4" id="editor-modal-title">Editar Sesión</h3>
             <input type="hidden" id="edit-id">
             <div class="space-y-4">
-                <input type="text" id="edit-title" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm" placeholder="Título">
-                <textarea id="edit-desc" rows="2" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm" placeholder="Descripción"></textarea>
+                <input type="text" id="edit-title" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm" placeholder="Título de la sesión">
+                <textarea id="edit-desc" rows="2" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm" placeholder="Descripción breve"></textarea>
                 <div class="grid grid-cols-2 gap-4">
                     <div><label class="text-xs text-gray-400">Trayectoria</label><select id="edit-category" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm"></select></div>
                     <div><label class="text-xs text-gray-400">Sección (Home)</label><select id="edit-type" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm"></select></div>
                 </div>
                 <div class="grid grid-cols-2 gap-4"><input type="text" id="edit-speaker" class="bg-black border border-gray-600 rounded p-2 text-white text-sm" placeholder="Ponente"><input type="number" id="edit-duration" class="bg-black border border-gray-600 rounded p-2 text-white text-sm" placeholder="Mins"></div>
-                <div class="grid grid-cols-2 gap-4"><div><label class="text-xs text-gray-400 block mb-1">Fecha</label><input type="date" id="edit-date-day" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm"></div><div><label class="text-xs text-gray-400 block mb-1">Hora</label><input type="time" id="edit-date-time" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm mb-1"></div></div>
+                <div class="grid grid-cols-2 gap-4"><div><label class="text-xs text-gray-400 block mb-1">Fecha</label><input type="date" id="edit-date-day" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm"></div><div><label class="text-xs text-gray-400 block mb-1">Hora</label><input type="time" id="edit-date-time" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm mb-1"><div class="flex gap-1 flex-wrap"><span onclick="document.getElementById('edit-date-time').value='09:00'" class="time-chip">09:00</span><span onclick="document.getElementById('edit-date-time').value='16:00'" class="time-chip">16:00</span></div></div></div>
                 <div class="border-t border-gray-700 pt-2 space-y-3">
                     <div><label class="text-xs text-gray-400 block mb-1">Teams/Link</label><input type="text" id="edit-link" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm"></div>
                     <div><label class="text-xs text-cnci-blue block mb-1">Grabación</label><input type="text" id="edit-recording-link" class="w-full bg-black border border-gray-600 rounded p-2 text-white text-sm border-cnci-blue"></div>
@@ -367,14 +412,21 @@
         </div>
     </div>
 
+    <!-- NEW: Student Editor Modal -->
     <div id="student-editor-modal" class="fixed inset-0 z-[145] hidden flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
         <div class="bg-[#1f1f1f] rounded-lg max-w-sm w-full p-6 border border-gray-700 shadow-2xl relative">
             <h3 class="text-xl font-bold text-white mb-4">Editar Alumno</h3>
             <input type="hidden" id="student-edit-id">
             <div class="space-y-4">
                 <div class="bg-black/50 p-2 rounded text-center text-gray-400 font-mono" id="student-edit-display-id"></div>
-                <div><label class="text-xs text-gray-400">Nueva Contraseña</label><input type="text" id="student-edit-pass" class="w-full bg-black border border-gray-600 rounded p-2 text-white" placeholder="Dejar vacío para no cambiar"></div>
-                <div class="flex gap-2 justify-end pt-4"><button onclick="document.getElementById('student-editor-modal').classList.add('hidden')" class="px-4 py-2 text-gray-400">Cancelar</button><button onclick="saveUserForm()" class="px-6 py-2 bg-cnci-blue text-white rounded font-bold">Guardar</button></div>
+                <div>
+                    <label class="text-xs text-gray-400">Nueva Contraseña</label>
+                    <input type="text" id="student-edit-pass" class="w-full bg-black border border-gray-600 rounded p-2 text-white" placeholder="Dejar vacío para no cambiar">
+                </div>
+                <div class="flex gap-2 justify-end pt-4">
+                    <button onclick="document.getElementById('student-editor-modal').classList.add('hidden')" class="px-4 py-2 text-gray-400">Cancelar</button>
+                    <button onclick="saveUserForm()" class="px-6 py-2 bg-cnci-blue text-white rounded font-bold">Guardar</button>
+                </div>
             </div>
         </div>
     </div>
@@ -382,6 +434,7 @@
     <!-- FIREBASE & LOGIC -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
         import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
@@ -412,7 +465,7 @@
         let currentAttendanceSessionId = null;
         let currentFilterPathway = 'all';
         let currentSearchQuery = "";
-        let siteConfig = { aboutVideo: "", aboutText: "Información pendiente..." };
+        window.charts = {};
 
         window.handleProfileClick = function() { if(currentUser) { const dd = document.getElementById('profile-dropdown'); dd.classList.toggle('hidden'); dd.classList.toggle('flex'); } else document.getElementById('login-modal').classList.remove('hidden'); };
         window.addEventListener('firebase-ready', init);
@@ -441,7 +494,6 @@
             });
             window.fb.onSnapshot(window.fb.doc(window.db, "site_config", "general"), (doc) => {
                 if(doc.exists()) { siteConfig = doc.data(); }
-                // Pre-load About Modal info
                 document.getElementById('about-text-content').innerText = siteConfig.aboutText || "Información pendiente...";
                 document.getElementById('about-video-frame').src = siteConfig.aboutVideo || "";
             });
@@ -494,7 +546,6 @@
             const filterCat = document.getElementById('cal-filter-cat');
             const filterSec = document.getElementById('cal-filter-sec');
             
-            // Populate Filters if empty
             if(filterCat.options.length <= 1) { Object.values(categoriesDB).forEach(c => filterCat.innerHTML += `<option value="${c.id}">${c.name}</option>`); }
             if(filterSec.options.length <= 1) { Object.values(sessionTypesDB).forEach(t => filterSec.innerHTML += `<option value="${t.id}">${t.name}</option>`); }
             
@@ -506,13 +557,10 @@
             const firstDay = new Date(year, month, 1).getDay();
             const daysInMonth = new Date(year, month + 1, 0).getDate();
             
-            // Empty cells before 1st day
             for(let i=0; i<firstDay; i++) { container.innerHTML += `<div class="calendar-day empty"></div>`; }
             
-            // Days
             for(let d=1; d<=daysInMonth; d++) {
                 const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-                // Filter sessions for this day
                 const daySessions = sessions.filter(s => {
                     const sDate = s.startTime.substring(0, 10);
                     const matchDate = sDate === dateStr;
@@ -532,7 +580,7 @@
         };
 
         // --- FRONTEND ---
-        function renderNotifications() { /* ... same as previous ... */ const badge = document.getElementById('notif-badge'); const list = document.getElementById('notif-list'); list.innerHTML = ""; let count = 0; if (currentUserData) { if(currentUserData.certificates) { currentUserData.certificates.forEach(c => { if(!c.accessed) { count++; const cat = categoriesDB[c.pathway] || {}; list.innerHTML += `<div class="p-3 border-b border-gray-700 hover:bg-gray-800 cursor-pointer" onclick="openPathwaysModal()"><div class="flex items-center gap-2"><i class="fas fa-award text-yellow-400"></i><div class="text-xs text-white">Constancia disponible: <span class="font-bold">${cat.name}</span></div></div></div>`; } }); } } const today = new Date(); const limit = new Date(today); limit.setDate(today.getDate() + 3); sessions.forEach(s => { const sDate = new Date(s.startTime); if(sDate > today && sDate < limit) { count++; list.innerHTML += `<div class="p-3 border-b border-gray-700 hover:bg-gray-800 cursor-pointer" onclick="openModal(${JSON.stringify(s).replace(/"/g, '&quot;')})"><div class="flex items-center gap-2"><i class="fas fa-video text-cnci-blue"></i><div class="text-xs text-white">Próxima Sesión: <span class="font-bold">${s.title}</span><div class="text-[10px] text-gray-400">${formatMXDate(s.startTime)}</div></div></div></div>`; } }); if(count > 0 && document.getElementById('notification-dropdown').classList.contains('hidden')) { badge.innerText = count; badge.classList.remove('hidden'); } else { badge.classList.add('hidden'); } if(count===0) list.innerHTML = `<div class="p-4 text-center text-gray-500 text-xs">No tienes notificaciones nuevas.</div>`; }
+        function renderNotifications() { /* ... */ const badge = document.getElementById('notif-badge'); const list = document.getElementById('notif-list'); list.innerHTML = ""; let count = 0; if (currentUserData) { if(currentUserData.certificates) { currentUserData.certificates.forEach(c => { if(!c.accessed) { count++; const cat = categoriesDB[c.pathway] || {}; list.innerHTML += `<div class="p-3 border-b border-gray-700 hover:bg-gray-800 cursor-pointer" onclick="openPathwaysModal()"><div class="flex items-center gap-2"><i class="fas fa-award text-yellow-400"></i><div class="text-xs text-white">Constancia disponible: <span class="font-bold">${cat.name}</span></div></div></div>`; } }); } } const today = new Date(); const limit = new Date(today); limit.setDate(today.getDate() + 3); sessions.forEach(s => { const sDate = new Date(s.startTime); if(sDate > today && sDate < limit) { count++; list.innerHTML += `<div class="p-3 border-b border-gray-700 hover:bg-gray-800 cursor-pointer" onclick="openModal(${JSON.stringify(s).replace(/"/g, '&quot;')})"><div class="flex items-center gap-2"><i class="fas fa-video text-cnci-blue"></i><div class="text-xs text-white">Próxima Sesión: <span class="font-bold">${s.title}</span><div class="text-[10px] text-gray-400">${formatMXDate(s.startTime)}</div></div></div></div>`; } }); if(count > 0 && document.getElementById('notification-dropdown').classList.contains('hidden')) { badge.innerText = count; badge.classList.remove('hidden'); } else { badge.classList.add('hidden'); } if(count===0) list.innerHTML = `<div class="p-4 text-center text-gray-500 text-xs">No tienes notificaciones nuevas.</div>`; }
         window.handleGlobalSearch = function(val) { currentSearchQuery = val.toLowerCase(); renderRows(); };
         window.setPathwayFilter = function(id) { currentFilterPathway = id; renderFilters(); renderRows(); renderRecordingsGrid(); };
         function formatMXDate(iso) { if(!iso) return "-"; return new Date(iso).toLocaleString('es-MX', { timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true }) + " (CDMX)"; }
@@ -540,7 +588,7 @@
         function getMatchPercentage(session, user) { if (!user || user.verifiedSessions.length === 0) return 98; const catCounts = {}; user.verifiedSessions.forEach(sid => { const s = sessions.find(x => x.id === sid); if(s) catCounts[s.category] = (catCounts[s.category] || 0) + 1; }); const sortedCats = Object.keys(catCounts).sort((a,b) => catCounts[b] - catCounts[a]); if (session.category === sortedCats[0]) return 98; return 85; }
 
         function renderHero() {
-            if(sessions.length===0) return;
+            if(sessions.length===0) { document.getElementById('hero-section').innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">No hay sesiones destacadas</div>'; return; }
             let hero = sessions.find(s => getSessionStatus(s)==='LIVE') || sessions.find(s => s.featured && getSessionStatus(s)==='UPCOMING') || sessions[sessions.length-1];
             if(!hero) return;
             const status = getSessionStatus(hero); const cat = categoriesDB[hero.category] || {name: hero.category, emoji: ''}; let badgeHTML = status==='LIVE' ? '<span class="bg-cnci-orange text-black font-bold text-xs px-2 py-1 rounded shadow-lg shadow-orange-500/50 live-indicator flex items-center gap-2"><i class="fas fa-broadcast-tower"></i> EN VIVO</span>' : `<span class="bg-blue-800 text-white font-bold text-xs px-2 py-1 rounded flex items-center gap-2"><i class="far fa-calendar-alt"></i> ${formatMXDate(hero.startTime).split(' ')[0]}</span>`;
@@ -548,6 +596,7 @@
             document.getElementById('hero-section').innerHTML = `<div class="absolute inset-0"><img src="${hero.image}" class="w-full h-full object-cover" onerror="handleImageError(this)"><div class="absolute inset-0 hero-overlay"></div><div class="absolute inset-0 hero-gradient"></div></div><div class="absolute top-[30%] left-4 md:left-12 max-w-2xl space-y-5 animate-fade-in"><div class="flex items-center gap-3">${badgeHTML} <span class="text-cnci-blue font-bold tracking-widest text-sm uppercase">Destacado</span></div><h1 class="text-4xl md:text-6xl font-bold text-white drop-shadow-lg leading-tight">${hero.title}</h1><div class="flex items-center gap-4 text-sm font-semibold"><span class="text-green-400">98% Match</span><span class="text-gray-300">${hero.durationMinutes} min</span><span class="text-cnci-blue flex items-center gap-1">${cat.emoji} ${cat.name}</span></div><p class="text-gray-200 text-lg drop-shadow-md line-clamp-3 max-w-xl">${hero.desc}</p><div class="flex gap-4 pt-4"><button onclick="openModal(${json})" class="bg-cnci-blue text-white px-8 py-3 rounded hover:bg-blue-700 font-bold transition">Ver Detalles</button></div></div>`;
         }
 
+        // RENDER ROWS (Filter by Enabled Sections)
         function renderRows() {
             const container = document.getElementById('content-rows');
             container.innerHTML = "";
@@ -580,7 +629,6 @@
             const modal = document.getElementById('modal');
             const cat = categoriesDB[data.category] || {};
             const status = getSessionStatus(data);
-            // ... (rest of modal logic identical to previous, abbreviated)
             const isEmbed = status === 'RECORDED' && (data.recordingLink || (data.link && data.link.includes('embed')));
             const finalLink = status === 'RECORDED' && data.recordingLink ? data.recordingLink : data.link;
 
@@ -616,7 +664,38 @@
         window.rateSession = async function(score) { if(!currentUser) { document.getElementById('login-modal').classList.remove('hidden'); return; } const sid = currentModalSession.id; if(!currentUserData.ratings) currentUserData.ratings = {}; currentUserData.ratings[sid] = score; await window.fb.updateDoc(window.fb.doc(window.db, "students", currentUser), { ratings: currentUserData.ratings }); let currentAvg = currentModalSession.ratingAvg || 0; let currentCount = currentModalSession.ratingCount || 0; const newCount = currentCount + 1; const newAvg = ((currentAvg * currentCount) + score) / newCount; await window.fb.updateDoc(window.fb.doc(window.db, "sessions", sid.toString()), { ratingAvg: newAvg, ratingCount: newCount }); Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: '¡Calificación enviada!', showConfirmButton: false, timer: 1500 }); };
         window.closeModal = function() { const m=document.getElementById('modal'); const c=document.getElementById('modal-content'); m.classList.add('opacity-0'); c.classList.remove('scale-100'); c.classList.add('scale-90'); document.getElementById('modal-iframe').src = ""; setTimeout(() => m.classList.add('hidden'), 300); };
         window.toggleFavorite = async function() { if(!currentUser) { document.getElementById('login-modal').classList.remove('hidden'); return; } const sid = currentModalSession.id; let favs = currentUserData.favorites || []; if(favs.includes(sid)) favs = favs.filter(id => id !== sid); else favs.push(sid); await window.fb.updateDoc(window.fb.doc(window.db, "students", currentUser), { favorites: favs }); window.openModal(currentModalSession); };
-        window.openPathwaysModal = function() { /* ... same ... */ if(!currentUser) { document.getElementById('login-modal').classList.remove('hidden'); return; } const modal = document.getElementById('pathways-modal'); const user = currentUserData; document.getElementById('profile-modal-avatar').src = `https://ui-avatars.com/api/?name=${currentUser}&background=2a6aff&color=fff&size=128`; document.getElementById('profile-modal-id').innerText = currentUser; const favContainer = document.getElementById('favorites-container'); favContainer.innerHTML = ""; if(user.favorites && user.favorites.length > 0) { user.favorites.forEach(fid => { const s = sessions.find(x => x.id === fid); if(s) { const cat = categoriesDB[s.category] || {}; const st = getSessionStatus(s); let stBadge = st === 'LIVE' ? '<span class="text-red-500 text-[10px] font-bold">● EN VIVO</span>' : (st === 'UPCOMING' ? '<span class="text-blue-400 text-[10px]">● PRÓXIMA</span>' : '<span class="text-gray-500 text-[10px]">● GRABACIÓN</span>'); const json = JSON.stringify(s).replace(/"/g, '&quot;'); favContainer.innerHTML += `<div class="bg-gray-800 rounded p-3 flex gap-3 cursor-pointer hover:bg-gray-700 items-center" onclick="closeModal(); setTimeout(()=>openModal(${json}), 300)"><img src="${s.image}" class="w-16 h-12 object-cover rounded" onerror="handleImageError(this)"><div class="overflow-hidden w-full"><div class="flex justify-between items-center">${stBadge}</div><p class="text-white text-xs font-bold truncate mt-1">${s.title}</p><p class="text-gray-400 text-[10px]">${cat.name}</p></div></div>`; } }); } else favContainer.innerHTML = `<p class="text-gray-500 text-sm col-span-full italic">No tienes sesiones guardadas aún.</p>`; const pathContainer = document.getElementById('pathways-container'); pathContainer.innerHTML = ''; Object.values(categoriesDB).forEach(path => { const verifiedCount = user.verifiedSessions.filter(sid => { const s = sessions.find(sx => sx.id == sid); return s && s.category === path.id; }).length; const progress = Math.min((verifiedCount / path.req) * 100, 100); const isCompleted = verifiedCount >= path.req; const cert = user.certificates ? user.certificates.find(c => c.pathway === path.id) : null; let btn = cert ? `<a href="${cert.link}" target="_blank" onclick="trackCertClick('${currentUser}', '${path.id}')" class="bg-green-600 text-white text-xs py-2 px-4 rounded">Descargar</a>` : (isCompleted ? `<span class="text-yellow-500 text-xs">En Proceso</span>` : `<span class="text-gray-500 text-xs">Bloqueado</span>`); pathContainer.innerHTML += `<div class="bg-gray-900 rounded p-4 border border-gray-800 flex gap-4 items-center"><div class="text-2xl">${path.emoji}</div><div class="flex-1"><h4 class="text-white text-sm font-bold">${path.name}</h4><div class="w-full bg-gray-700 h-1.5 mt-2 rounded"><div class="bg-cnci-blue h-1.5 rounded" style="width:${progress}%"></div></div></div>${btn}</div>`; }); modal.classList.remove('hidden'); };
+        window.openPathwaysModal = function() {
+            if(!currentUser) { document.getElementById('login-modal').classList.remove('hidden'); return; }
+            const modal = document.getElementById('pathways-modal');
+            const user = currentUserData;
+            document.getElementById('profile-modal-avatar').src = `https://ui-avatars.com/api/?name=${currentUser}&background=2a6aff&color=fff&size=128`;
+            document.getElementById('profile-modal-id').innerText = currentUser;
+            const favContainer = document.getElementById('favorites-container');
+            favContainer.innerHTML = "";
+            if(user.favorites && user.favorites.length > 0) {
+                user.favorites.forEach(fid => {
+                    const s = sessions.find(x => x.id === fid);
+                    if(s) {
+                        const cat = categoriesDB[s.category] || {};
+                        const st = getSessionStatus(s);
+                        let stBadge = st === 'LIVE' ? '<span class="text-red-500 text-[10px] font-bold">● EN VIVO</span>' : (st === 'UPCOMING' ? '<span class="text-blue-400 text-[10px]">● PRÓXIMA</span>' : '<span class="text-gray-500 text-[10px]">● GRABACIÓN</span>');
+                        const json = JSON.stringify(s).replace(/"/g, '&quot;');
+                        favContainer.innerHTML += `<div class="bg-gray-800 rounded p-3 flex gap-3 cursor-pointer hover:bg-gray-700 items-center" onclick="closeModal(); setTimeout(()=>openModal(${json}), 300)"><img src="${s.image}" class="w-16 h-12 object-cover rounded" onerror="handleImageError(this)"><div class="overflow-hidden w-full"><div class="flex justify-between items-center">${stBadge}</div><p class="text-white text-xs font-bold truncate mt-1">${s.title}</p><p class="text-gray-400 text-[10px]">${cat.name}</p></div></div>`;
+                    }
+                });
+            } else favContainer.innerHTML = `<p class="text-gray-500 text-sm col-span-full italic">No tienes sesiones guardadas aún.</p>`;
+            const pathContainer = document.getElementById('pathways-container');
+            pathContainer.innerHTML = '';
+            Object.values(categoriesDB).forEach(path => {
+                const verifiedCount = user.verifiedSessions.filter(sid => { const s = sessions.find(sx => sx.id == sid); return s && s.category === path.id; }).length;
+                const progress = Math.min((verifiedCount / path.req) * 100, 100);
+                const isCompleted = verifiedCount >= path.req;
+                const cert = user.certificates ? user.certificates.find(c => c.pathway === path.id) : null;
+                let btn = cert ? `<a href="${cert.link}" target="_blank" onclick="trackCertClick('${currentUser}', '${path.id}')" class="bg-green-600 text-white text-xs py-2 px-4 rounded">Descargar</a>` : (isCompleted ? `<span class="text-yellow-500 text-xs">En Proceso</span>` : `<span class="text-gray-500 text-xs">Bloqueado</span>`);
+                pathContainer.innerHTML += `<div class="bg-gray-900 rounded p-4 border border-gray-800 flex gap-4 items-center"><div class="text-2xl">${path.emoji}</div><div class="flex-1"><h4 class="text-white text-sm font-bold">${path.name}</h4><div class="w-full bg-gray-700 h-1.5 mt-2 rounded"><div class="bg-cnci-blue h-1.5 rounded" style="width:${progress}%"></div></div></div>${btn}</div>`;
+            });
+            modal.classList.remove('hidden');
+        };
         window.trackCertClick = async function(uid, pid) { const u = usersDB[uid]; if(u && u.certificates) { const c = u.certificates.find(x => x.pathway === pid); if(c && !c.accessed) { c.accessed = true; await window.fb.updateDoc(window.fb.doc(window.db, "students", uid), { certificates: u.certificates }); } } };
 
         // --- ADMIN ---
@@ -627,25 +706,70 @@
 
         // Admin Config Save
         window.saveSiteConfig = async function() {
+            const videoUrl = window.getEmbedUrl(document.getElementById('conf-about-video').value);
             await window.fb.setDoc(window.fb.doc(window.db, "site_config", "general"), {
-                aboutVideo: document.getElementById('conf-about-video').value,
+                aboutVideo: videoUrl,
                 aboutText: document.getElementById('conf-about-text').value
             });
             Swal.fire("Guardado", "Configuración actualizada", "success");
         };
 
-        // Render Functions (Stats, Sessions, etc. maintained from previous version, just ensuring names match)
-        function renderAdminStats() { /* same */ const mode = document.getElementById('stats-chart-type').value; let topSessions = []; if (mode === 'attendance') { const sessionAttendance = {}; Object.values(usersDB).forEach(u => u.verifiedSessions.forEach(sid => sessionAttendance[sid] = (sessionAttendance[sid]||0)+1)); topSessions = Object.entries(sessionAttendance).sort((a,b) => b[1] - a[1]).slice(0, 5); } else { topSessions = sessions.filter(s => s.ratingAvg).sort((a,b) => b.ratingAvg - a.ratingAvg).slice(0, 5).map(s => [s.id, s.ratingAvg]); } renderChart('chart-top-sessions', 'bar', topSessions.map(x => { const s = sessions.find(s=>s.id == x[0]); return s ? s.title.substring(0, 15)+'...' : 'ID:'+x[0]; }), topSessions.map(x => x[1]), mode === 'attendance' ? 'Asistencias' : 'Calificación', '#2a6aff'); const catPopularity = {}; const monthlyAttendance = {}; Object.values(usersDB).forEach(u => u.verifiedSessions.forEach(sid => { const s = sessions.find(x => x.id === sid); if(s) { catPopularity[s.category] = (catPopularity[s.category] || 0) + 1; const monthKey = new Date(s.startTime).toLocaleString('es-MX', { month: 'short', year: '2-digit' }); monthlyAttendance[monthKey] = (monthlyAttendance[monthKey] || 0) + 1; } })); renderChart('chart-pathways', 'doughnut', Object.keys(catPopularity).map(k => categoriesDB[k]?.name || k), Object.values(catPopularity), 'Popularidad', ['#2a6aff', '#ff8500', '#10B981', '#F59E0B']); renderChart('chart-attendance-month', 'line', Object.keys(monthlyAttendance), Object.values(monthlyAttendance), 'Asistencias', '#ff8500'); }
-        function renderChart(id, type, labels, data, label, color) { const ctx = document.getElementById(id).getContext('2d'); if(charts[id]) charts[id].destroy(); charts[id] = new Chart(ctx, { type: type, data: { labels: labels, datasets: [{ label: label, data: data, backgroundColor: color, borderColor: Array.isArray(color) ? null : color, borderWidth: 1 }] }, options: { responsive: true, plugins: { legend: { display: type === 'doughnut', position: 'bottom', labels: { color: 'white' } } }, scales: type !== 'doughnut' ? { y: { ticks: { color: 'gray' }, grid: { color: '#333' } }, x: { ticks: { color: 'gray' } } } : {} } }); }
+        // Render Functions
+        function renderAdminStats() { const mode = document.getElementById('stats-chart-type').value; let topSessions = []; if (mode === 'attendance') { const sessionAttendance = {}; Object.values(usersDB).forEach(u => u.verifiedSessions.forEach(sid => sessionAttendance[sid] = (sessionAttendance[sid]||0)+1)); topSessions = Object.entries(sessionAttendance).sort((a,b) => b[1] - a[1]).slice(0, 5); } else { topSessions = sessions.filter(s => s.ratingAvg).sort((a,b) => b.ratingAvg - a.ratingAvg).slice(0, 5).map(s => [s.id, s.ratingAvg]); } renderChart('chart-top-sessions', 'bar', topSessions.map(x => { const s = sessions.find(s=>s.id == x[0]); return s ? s.title.substring(0, 15)+'...' : 'ID:'+x[0]; }), topSessions.map(x => x[1]), mode === 'attendance' ? 'Asistencias' : 'Calificación', '#2a6aff'); const catPopularity = {}; const monthlyAttendance = {}; Object.values(usersDB).forEach(u => u.verifiedSessions.forEach(sid => { const s = sessions.find(x => x.id === sid); if(s) { catPopularity[s.category] = (catPopularity[s.category] || 0) + 1; const monthKey = new Date(s.startTime).toLocaleString('es-MX', { month: 'short', year: '2-digit' }); monthlyAttendance[monthKey] = (monthlyAttendance[monthKey] || 0) + 1; } })); renderChart('chart-pathways', 'doughnut', Object.keys(catPopularity).map(k => categoriesDB[k]?.name || k), Object.values(catPopularity), 'Popularidad', ['#2a6aff', '#ff8500', '#10B981', '#F59E0B']); renderChart('chart-attendance-month', 'line', Object.keys(monthlyAttendance), Object.values(monthlyAttendance), 'Asistencias', '#ff8500'); }
+        function renderChart(id, type, labels, data, label, color) { const ctx = document.getElementById(id).getContext('2d'); if(window.charts[id]) window.charts[id].destroy(); window.charts[id] = new Chart(ctx, { type: type, data: { labels: labels, datasets: [{ label: label, data: data, backgroundColor: color, borderColor: Array.isArray(color) ? null : color, borderWidth: 1 }] }, options: { responsive: true, plugins: { legend: { display: type === 'doughnut', position: 'bottom', labels: { color: 'white' } } }, scales: type !== 'doughnut' ? { y: { ticks: { color: 'gray' }, grid: { color: '#333' } }, x: { ticks: { color: 'gray' } } } : {} } }); }
         
         function populateFilters() { const catSel = document.getElementById('filter-session-cat'); const spkSel = document.getElementById('filter-session-speaker'); const currentCat = catSel.value; const currentSpk = spkSel.value; catSel.innerHTML = '<option value="all">Todas Trayectorias</option>'; spkSel.innerHTML = '<option value="all">Todos Ponentes</option>'; Object.values(categoriesDB).forEach(c => catSel.innerHTML += `<option value="${c.id}">${c.name}</option>`); const speakers = [...new Set(sessions.map(s => s.speaker))].sort(); speakers.forEach(sp => spkSel.innerHTML += `<option value="${sp}">${sp}</option>`); if(currentCat) catSel.value = currentCat; if(currentSpk) spkSel.value = currentSpk; }
         window.renderAdminSessions = function() { const tbody = document.getElementById('admin-sessions-table-body'); const search = document.getElementById('search-sessions').value.toLowerCase(); const filterCat = document.getElementById('filter-session-cat').value; const filterSpk = document.getElementById('filter-session-speaker').value; tbody.innerHTML = ''; const sessionCounts = {}; Object.values(usersDB).forEach(u => u.verifiedSessions.forEach(sid => sessionCounts[sid] = (sessionCounts[sid]||0)+1)); const filtered = sessions.filter(s => { const matchSearch = s.title.toLowerCase().includes(search); const matchCat = filterCat === 'all' || s.category === filterCat; const matchSpk = filterSpk === 'all' || s.speaker === filterSpk; return matchSearch && matchCat && matchSpk; }); const paged = paginate(filtered, currentPage.sessions); paged.items.forEach(s => { const cat = categoriesDB[s.category] || {name: s.category}; const rating = s.ratingAvg ? `⭐ ${s.ratingAvg.toFixed(1)}` : '-'; tbody.innerHTML += `<tr class="hover:bg-gray-900 border-b border-gray-800"><td class="p-3 text-white font-bold">${s.title}</td><td class="p-3 text-gray-400 text-xs">${cat.name}</td><td class="p-3 text-gray-400 text-xs">${s.speaker}</td><td class="p-3 text-gray-400 text-center text-xs">${s.durationMinutes} min</td><td class="p-3 text-center text-green-500 font-bold">${sessionCounts[s.id] || 0}</td><td class="p-3 text-center text-yellow-400 text-xs">${rating}</td><td class="p-3 text-center"><button onclick="openSessionEditor(${s.id})" class="text-blue-500 mr-2"><i class="fas fa-edit"></i></button><button onclick="deleteSession(${s.id})" class="text-red-500"><i class="fas fa-trash"></i></button></td></tr>`; }); renderPagination('sessions', paged.total, paged.current); };
         
         window.openSessionEditor = function(id = null) { const modal = document.getElementById('session-editor-modal'); const selectCat = document.getElementById('edit-category'); const selectType = document.getElementById('edit-type'); selectCat.innerHTML = ""; Object.values(categoriesDB).forEach(c => selectCat.innerHTML += `<option value="${c.id}">${c.name}</option>`); selectType.innerHTML = ""; Object.values(sessionTypesDB).forEach(t => selectType.innerHTML += `<option value="${t.id}">${t.name}</option>`); if(id) { const s = sessions.find(x => x.id === id); document.getElementById('editor-modal-title').innerText = "Editar Sesión"; document.getElementById('edit-id').value = s.id; document.getElementById('edit-title').value = s.title; document.getElementById('edit-desc').value = s.desc; document.getElementById('edit-speaker').value = s.speaker; document.getElementById('edit-category').value = s.category; document.getElementById('edit-type').value = s.typeId || (Object.keys(sessionTypesDB)[0] || ""); document.getElementById('edit-link').value = s.link; document.getElementById('edit-recording-link').value = s.recordingLink || ""; document.getElementById('edit-gcal').value = s.gcal || ""; document.getElementById('edit-date').value = s.startTime.slice(0, 16); if (s.startTime) { document.getElementById('edit-date-day').value = s.startTime.substring(0, 10); document.getElementById('edit-date-time').value = s.startTime.substring(11, 16); } document.getElementById('edit-duration').value = s.durationMinutes; document.getElementById('edit-image').value = s.image; } else { document.getElementById('editor-modal-title').innerText = "Nueva Sesión"; document.getElementById('edit-id').value = ""; document.getElementById('edit-title').value = ""; document.getElementById('edit-date-day').value = ""; document.getElementById('edit-date-time').value = ""; document.getElementById('edit-recording-link').value = ""; document.getElementById('edit-gcal').value = ""; } modal.classList.remove('hidden'); };
-        window.saveSessionForm = async function() { const newId = parseInt(document.getElementById('edit-id').value) || Date.now(); const dateDay = document.getElementById('edit-date-day').value; const dateTime = document.getElementById('edit-date-time').value; if(!dateDay || !dateTime) return Swal.fire("Error", "Fecha y hora requeridas", "error"); const d = new Date(`${dateDay}T${dateTime}`); const isoTime = d.toISOString(); await window.fb.setDoc(window.fb.doc(window.db, "sessions", newId.toString()), { title: document.getElementById('edit-title').value, desc: document.getElementById('edit-desc').value, speaker: document.getElementById('edit-speaker').value, category: document.getElementById('edit-category').value, typeId: document.getElementById('edit-type').value, link: document.getElementById('edit-link').value, recordingLink: document.getElementById('edit-recording-link').value, gcal: document.getElementById('edit-gcal').value || "", startTime: isoTime, durationMinutes: parseInt(document.getElementById('edit-duration').value), image: document.getElementById('edit-image').value, featured: false }, {merge: true}); document.getElementById('session-editor-modal').classList.add('hidden'); Swal.fire("Guardado", "Sesión actualizada en la nube.", "success"); };
-        // ... (Include other admin functions: renderAdminSections, etc.) ...
-        window.renderAdminSections = function() { const tbody = document.getElementById('admin-sections-table-body'); tbody.innerHTML = ""; Object.values(sessionTypesDB).forEach(t => { const eyeClass = t.enabled !== false ? "text-green-500" : "text-gray-500"; tbody.innerHTML += `<tr class="border-b border-gray-800"><td class="p-3 text-white">${t.name} <span class="text-gray-500 text-xs uppercase">${t.id}</span></td><td class="p-3 text-center text-xs">${t.enabled!==false ? 'Visible' : 'Oculto'}</td><td class="p-3 text-center"><button onclick="toggleSectionVisibility('${t.id}', ${t.enabled!==false})" class="${eyeClass} mr-2"><i class="fas fa-eye"></i></button><button onclick="deleteSection('${t.id}')" class="text-red-500"><i class="fas fa-trash"></i></button></td></tr>`; }); };
-        window.toggleSectionVisibility = async function(id, currentState) { await window.fb.updateDoc(window.fb.doc(window.db, "session_types", id), { enabled: !currentState }); };
+        window.saveSessionForm = async function() { 
+            const newId = parseInt(document.getElementById('edit-id').value) || Date.now(); 
+            const dateDay = document.getElementById('edit-date-day').value; 
+            const dateTime = document.getElementById('edit-date-time').value; 
+            if(!dateDay || !dateTime) return Swal.fire("Error", "Fecha y hora requeridas", "error"); 
+            const d = new Date(`${dateDay}T${dateTime}`); 
+            const isoTime = d.toISOString(); 
+            // Auto-convert recording link to embed
+            const recLink = window.getEmbedUrl(document.getElementById('edit-recording-link').value);
+            
+            await window.fb.setDoc(window.fb.doc(window.db, "sessions", newId.toString()), { 
+                title: document.getElementById('edit-title').value, 
+                desc: document.getElementById('edit-desc').value, 
+                speaker: document.getElementById('edit-speaker').value, 
+                category: document.getElementById('edit-category').value, 
+                typeId: document.getElementById('edit-type').value, 
+                link: document.getElementById('edit-link').value, 
+                recordingLink: recLink, 
+                gcal: document.getElementById('edit-gcal').value || "", 
+                startTime: isoTime, 
+                durationMinutes: parseInt(document.getElementById('edit-duration').value), 
+                image: document.getElementById('edit-image').value, 
+                featured: false 
+            }, {merge: true}); 
+            document.getElementById('session-editor-modal').classList.add('hidden'); 
+            Swal.fire("Guardado", "Sesión actualizada en la nube.", "success"); 
+        };
+
+        // SECTIONS (VISIBILITY)
+        window.renderAdminSections = function() {
+            const tbody = document.getElementById('admin-sections-table-body');
+            tbody.innerHTML = "";
+            Object.values(sessionTypesDB).forEach(t => {
+                const eyeClass = t.enabled !== false ? "text-green-500" : "text-gray-500";
+                tbody.innerHTML += `
+                    <tr class="border-b border-gray-800">
+                        <td class="p-3 text-white">${t.name} <span class="text-gray-500 text-xs uppercase">${t.id}</span></td>
+                        <td class="p-3 text-center text-xs">${t.enabled!==false ? 'Visible' : 'Oculto'}</td>
+                        <td class="p-3 text-center">
+                            <button onclick="toggleSectionVisibility('${t.id}', ${t.enabled!==false})" class="${eyeClass} mr-2"><i class="fas fa-eye"></i></button>
+                            <button onclick="deleteSection('${t.id}')" class="text-red-500"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+            });
+        };
+        window.toggleSectionVisibility = async function(id, currentState) {
+            await window.fb.updateDoc(window.fb.doc(window.db, "session_types", id), { enabled: !currentState });
+        };
         window.openSectionEditor = function() { document.getElementById('section-editor-modal').classList.remove('hidden'); document.getElementById('sect-edit-key').value=""; document.getElementById('sect-edit-name').value=""; };
         window.saveSectionForm = async function() { const k = document.getElementById('sect-edit-key').value.trim().toLowerCase(); const n = document.getElementById('sect-edit-name').value; if(!k || !n) return; await window.fb.setDoc(window.fb.doc(window.db, "session_types", k), { id: k, name: n, enabled: true }); document.getElementById('section-editor-modal').classList.add('hidden'); };
         window.deleteSection = async function(id) { if(confirm("¿Eliminar sección?")) await window.fb.deleteDoc(window.fb.doc(window.db, "session_types", id)); };
@@ -656,7 +780,13 @@
         window.savePathwayForm = async function() { const k=document.getElementById('path-edit-key').value.trim().toLowerCase(); await window.fb.setDoc(window.fb.doc(window.db,"categories",k),{id:k, name:document.getElementById('path-edit-name').value, badge:document.getElementById('path-edit-badge').value, emoji:document.getElementById('path-edit-emoji').value, req:parseInt(document.getElementById('path-edit-req').value)}); document.getElementById('pathway-editor-modal').classList.add('hidden'); };
         window.deletePathway = async function(id) { if(confirm("¿Borrar?")) await window.fb.deleteDoc(window.fb.doc(window.db, "categories", id)); };
         
-        window.renderAdminUsers = function() { const b=document.getElementById('admin-users-table-body'); b.innerHTML=''; let u=Object.values(usersDB); const p=paginate(u, currentPage.users); p.items.forEach(x=>b.innerHTML+=`<tr class="border-b border-gray-800"><td class="p-3 text-white">${x.id}</td><td class="p-3 text-center text-gray-400">${x.verifiedSessions.length}</td><td class="p-3 text-center">${x.certificates.length}</td><td class="p-3 text-center"><button onclick="openUserEditor('${x.id}')" class="text-blue-500 mr-2"><i class="fas fa-edit"></i></button><button onclick="deleteUser('${x.id}')" class="text-red-500"><i class="fas fa-trash"></i></button></td></tr>`); renderPagination('users',p.total,p.current); };
+        window.renderAdminUsers = function() { 
+            const b=document.getElementById('admin-users-table-body'); b.innerHTML=''; 
+            let u=Object.values(usersDB); 
+            const p=paginate(u, currentPage.users); 
+            p.items.forEach(x=>b.innerHTML+=`<tr class="border-b border-gray-800"><td class="p-3 text-white">${x.id}</td><td class="p-3 text-center text-gray-400">${x.verifiedSessions.length}</td><td class="p-3 text-center">${x.certificates.length}</td><td class="p-3 text-center"><button onclick="openUserEditor('${x.id}')" class="text-blue-500 mr-2"><i class="fas fa-edit"></i></button><button onclick="deleteUser('${x.id}')" class="text-red-500"><i class="fas fa-trash"></i></button></td></tr>`); 
+            renderPagination('users',p.total,p.current); 
+        };
         window.openUserEditor = function(id) { const user = usersDB[id]; document.getElementById('student-edit-id').value = id; document.getElementById('student-edit-display-id').innerText = id; document.getElementById('student-edit-pass').value = ""; document.getElementById('student-editor-modal').classList.remove('hidden'); };
         window.saveUserForm = async function() { const id = document.getElementById('student-edit-id').value; const pass = document.getElementById('student-edit-pass').value.trim(); if(pass) { await window.fb.updateDoc(window.fb.doc(window.db, "students", id), { password: pass }); Swal.fire("Éxito", "Contraseña actualizada", "success"); } document.getElementById('student-editor-modal').classList.add('hidden'); };
         window.addUserManual = function() { Swal.fire({ input: 'text', title: 'Matrícula' }).then(async r => { if(r.value) { const id=r.value.toUpperCase().trim(); if(usersDB[id]) return; await window.fb.setDoc(window.fb.doc(window.db, "students", id), {id:id, verifiedSessions:[], certificates:[], favorites:[], lastAccess:"Nunca"}); usersDB[id]={ id: id, verifiedSessions:[], certificates:[], favorites:[], lastAccess:"Nunca" }; renderAdminUsers(); } }); };
