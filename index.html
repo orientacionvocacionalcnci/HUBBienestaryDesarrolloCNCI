@@ -533,17 +533,24 @@
             document.getElementById('view-time').textContent = s.time;
             
             const btnContainer = document.getElementById('viewer-action-container');
-            if (status === 'live') {
-                btnContainer.innerHTML = `<a href="${s.link}" target="_blank" class="w-full py-6 bg-cnciBlue text-white rounded-3xl font-black text-center shadow-2xl transition flex items-center justify-center gap-4 hover:scale-105 active:scale-95">UNIRME AHORA</a>`;
-            } else {
-                btnContainer.innerHTML = `<div class="p-6 bg-slate-100 dark:bg-white/5 rounded-3xl text-center flex flex-col items-center gap-1">
-                    <span class="text-[10px] uppercase font-black text-slate-400">Duración Estimada</span>
-                    <span class="font-bold text-xl text-slate-700 dark:text-slate-200">${s.duration || '60 mins'}</span>
-                </div>`;
-            }
+        
+            // CAMBIO QUIRÚRGICO AQUÍ:
+            // Unificamos el botón de acceso y la duración en un solo bloque sin condicionales de estado
+            btnContainer.innerHTML = `
+                <div class="flex flex-col gap-4 w-full">
+                    <a href="${s.link}" target="_blank" class="w-full py-6 ${status === 'live' ? 'bg-red-600 animate-pulse' : 'bg-cnciBlue'} text-white rounded-3xl font-black text-center shadow-2xl transition flex items-center justify-center gap-4 hover:scale-105 active:scale-95">
+                        <i class="fas fa-external-link-alt"></i> ${status === 'live' ? 'UNIRME AHORA' : 'ACCEDER A LA SESIÓN'}
+                    </a>
+                    <div class="p-6 bg-slate-100 dark:bg-white/5 rounded-3xl text-center flex flex-col items-center gap-1">
+                        <span class="text-[10px] uppercase font-black text-slate-400">Duración Estimada</span>
+                        <span class="font-bold text-xl text-slate-700 dark:text-slate-200">${s.duration || '60 mins'}</span>
+                    </div>
+                </div>
+            `;
+        
             document.getElementById('modal-viewer').classList.remove('hidden');
         };
-
+      
         window.closeViewer = () => document.getElementById('modal-viewer').classList.add('hidden');
         window.toggleDarkMode = () => { document.documentElement.classList.toggle('dark'); document.getElementById('theme-icon').className = document.documentElement.classList.contains('dark') ? 'fas fa-sun' : 'fas fa-moon'; };
         window.scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
