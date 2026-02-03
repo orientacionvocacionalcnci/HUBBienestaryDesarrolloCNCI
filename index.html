@@ -1,102 +1,745 @@
-import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-
-const Calendar = () => {
-  // Inicializamos con la fecha actual para que siempre abra en el mes presente
-  const [currentDate, setCurrentDate] = useState(new Date());
-  
-  const daysInMonth = (date) => {
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-  };
-
-  const startDayOfMonth = (date) => {
-    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
-  };
-
-  const prevMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
-  };
-
-  const nextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
-  };
-
-  const monthNames = [
-    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-  ];
-
-  const renderDays = () => {
-    const totalDays = daysInMonth(currentDate);
-    const startDay = startDayOfMonth(currentDate);
-    const days = [];
-    const today = new Date(); // Fecha real actual para comparar
-
-    // Días vacíos del mes anterior
-    for (let i = 0; i < startDay; i++) {
-      days.push(<div key={`empty-${i}`} className="h-10"></div>);
-    }
-
-    // Días del mes actual
-    for (let i = 1; i <= totalDays; i++) {
-      // Verificamos si este día es HOY
-      const isToday = 
-        i === today.getDate() && 
-        currentDate.getMonth() === today.getMonth() && 
-        currentDate.getFullYear() === today.getFullYear();
-
-      days.push(
-        <div 
-          key={i} 
-          className={`h-10 flex items-center justify-center rounded-full text-sm cursor-pointer transition-colors
-            ${isToday 
-              ? 'bg-blue-600 text-white font-bold shadow-md' // Estilo para el día actual
-              : 'hover:bg-blue-100 text-gray-700'
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HUB de Sesiones | Bienestar y Desarrollo CNCI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cnciBlue: '#2a6aff',
+                        cnciOrange: '#ff8500',
+                        darkBg: '#0f172a',
+                        darkCard: '#1e293b'
+                    },
+                    fontFamily: {
+                        outfit: ['Outfit', 'sans-serif'],
+                    }
+                }
             }
-          `}
-        >
-          {i}
-        </div>
-      );
-    }
-    return days;
-  };
+        }
+    </script>
+    <style>
+        body { font-family: 'Outfit', sans-serif; transition: background-color 0.3s, color 0.3s; }
+        .netflix-row::-webkit-scrollbar { display: none; }
+        .netflix-row { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .glass-card { 
+            background: rgba(255, 255, 255, 0.8); 
+            backdrop-filter: blur(12px); 
+            border: 1px solid rgba(0, 0, 0, 0.05); 
+        }
+        .dark .glass-card { 
+            background: rgba(30, 41, 59, 0.7); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+        }
 
-  return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold text-gray-800">
-          {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-        </h2>
-        <div className="flex gap-2">
-          <button onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-full text-gray-600">
-            <ChevronLeft size={20} />
-          </button>
-          <button onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-full text-gray-600">
-            <ChevronRight size={20} />
-          </button>
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-7 gap-2 mb-2 text-center">
-        {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map(day => (
-          <div key={day} className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-            {day}
-          </div>
-        ))}
-      </div>
-      
-      <div className="grid grid-cols-7 gap-2">
-        {renderDays()}
-      </div>
+        .admin-view { z-index: 1000; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+        .tab-active { border-bottom: 3px solid #2a6aff; color: #2a6aff; }
+        
+        .calendar-day { min-height: 100px; transition: all 0.2s; }
+        .calendar-day:hover { background: rgba(42, 106, 255, 0.05); }
+        .dark .calendar-day:hover { background: rgba(255, 255, 255, 0.03); }
 
-      {/* Leyenda opcional para que el usuario sepa qué significa el círculo azul */}
-      <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
-        <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
-        <span>Día actual</span>
-      </div>
+        input, select, textarea { 
+            background: white; 
+            border: 1px solid #e2e8f0; 
+            color: #1e293b; 
+            padding: 0.5rem; 
+            border-radius: 0.5rem; 
+        }
+        .dark input, .dark select, .dark textarea { 
+            background: #1e293b; 
+            border: 1px solid #334155; 
+            color: white; 
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-darkBg dark:text-slate-100 min-h-screen">
+
+    <!-- APP HOME VIEW -->
+    <div id="app-view">
+        <!-- Navbar -->
+        <nav class="fixed top-0 w-full z-50 glass-card px-4 md:px-8 py-3 flex justify-between items-center shadow-sm">
+            <div class="flex items-center gap-3">
+                <img src="https://i.postimg.cc/KzxV7m0Z/CNCI_VIRTUAL_LOGO.jpg" alt="CNCI Logo" class="h-10 md:h-12 rounded-lg object-contain bg-white p-1">
+                <div class="hidden sm:block h-8 w-[1px] bg-slate-200 dark:bg-slate-700 mx-2"></div>
+                <h1 class="text-lg font-bold tracking-tight hidden sm:block">HUB <span class="text-cnciBlue text-xs font-medium uppercase">Sesiones</span></h1>
+            </div>
+            
+            <div class="flex items-center gap-2 md:gap-6">
+                <div class="hidden md:flex gap-4">
+                    <button onclick="scrollToTop()" class="hover:text-cnciBlue transition font-medium">Inicio</button>
+                    <button onclick="scrollToSection('explorar-sec')" class="hover:text-cnciBlue transition font-medium">Secciones</button>
+                    <button onclick="scrollToSection('explorar-tray')" class="hover:text-cnciBlue transition font-medium">Trayectorias</button>
+                    <button onclick="scrollToSection('calendario-sec')" class="hover:text-cnciBlue transition font-medium">Calendario</button>
+                </div>
+                
+                <button onclick="toggleDarkMode()" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-yellow-400 hover:scale-110 transition">
+                    <i id="theme-icon" class="fas fa-moon"></i>
+                </button>
+            </div>
+        </nav>
+
+        <!-- Banner -->
+        <header id="banner-hero" class="relative h-[70vh] mt-16 overflow-hidden bg-slate-200 dark:bg-slate-900 cursor-pointer">
+            <div id="banner-container" class="relative w-full h-full"></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-slate-50 via-transparent to-black/20 dark:from-darkBg dark:to-black/40"></div>
+            <div class="absolute bottom-12 left-6 md:left-12 max-w-3xl">
+                <div id="banner-badge"></div>
+                <h2 id="banner-title" class="text-4xl md:text-7xl font-bold mb-4 leading-tight drop-shadow-md">Cargando...</h2>
+                <p id="banner-desc" class="text-slate-700 dark:text-slate-300 text-lg md:text-xl line-clamp-2 max-w-xl font-medium"></p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="px-6 md:px-12 py-12 space-y-20">
+            
+            <!-- Explorar por Sección -->
+            <section id="explorar-sec" class="space-y-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-2 h-8 bg-cnciBlue rounded-full"></div>
+                    <h3 class="text-2xl font-bold tracking-tight">Explorar por Sección</h3>
+                </div>
+                <div id="secciones-filters" class="flex flex-wrap gap-3"></div>
+            </section>
+
+            <!-- Explorar por Trayectoria -->
+            <section id="explorar-tray" class="space-y-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-2 h-8 bg-cnciOrange rounded-full"></div>
+                    <h3 class="text-2xl font-bold tracking-tight">Explorar por Trayectoria</h3>
+                </div>
+                <div id="trayectorias-filters" class="flex flex-wrap gap-3"></div>
+            </section>
+
+            <!-- Rows container -->
+            <div id="rows-container" class="space-y-20">
+                <!-- Secciones cargadas dinámicamente -->
+            </div>
+
+            <!-- Calendario Section -->
+            <section id="calendario-sec" class="pt-10 pb-20">
+                <div class="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-2 h-8 bg-slate-800 dark:bg-white rounded-full"></div>
+                        <h3 class="text-2xl font-bold tracking-tight">Calendario de Actividades</h3>
+                    </div>
+                    <div class="flex items-center gap-4 bg-white dark:bg-slate-800 p-2 rounded-2xl shadow-sm border border-slate-200 dark:border-white/5">
+                        <button onclick="changeMonth(-1)" class="w-10 h-10 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition"><i class="fas fa-chevron-left"></i></button>
+                        <span id="calendar-month" class="text-lg font-bold min-w-[150px] text-center capitalize"></span>
+                        <button onclick="changeMonth(1)" class="w-10 h-10 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-[2rem] overflow-hidden border border-slate-200 dark:border-white/10 shadow-xl">
+                    <div class="grid grid-cols-7 bg-slate-100 dark:bg-slate-800/50 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-white/10">
+                        <div>Dom</div><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div>
+                    </div>
+                    <div id="calendar-grid" class="grid grid-cols-7">
+                        <!-- Días generados -->
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="p-12 flex flex-col items-center gap-6 text-slate-400 dark:text-slate-600 border-t border-slate-200 dark:border-white/5">
+            <img src="https://i.postimg.cc/KzxV7m0Z/CNCI_VIRTUAL_LOGO.jpg" alt="CNCI Logo" class="h-8 grayscale opacity-50">
+            <p class="text-sm font-medium">© 2026 Universidad CNCI Virtual • Bienestar y Desarrollo</p>
+            <button onclick="promptAdmin()" class="opacity-20 hover:opacity-100 hover:text-cnciBlue transition duration-300 p-2">
+                <i class="fas fa-shield-alt text-lg"></i>
+            </button>
+        </footer>
     </div>
-  );
-};
 
-export default Calendar;
+    <!-- ADMIN FULLSCREEN VIEW -->
+    <div id="admin-view" class="fixed inset-0 bg-white dark:bg-slate-950 translate-y-full admin-view flex flex-col overflow-hidden">
+        <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-white/10 px-6 py-4 flex justify-between items-center shadow-sm">
+            <div class="flex items-center gap-4">
+                <div class="bg-cnciBlue text-white p-2 rounded-lg">
+                    <i class="fas fa-cog"></i>
+                </div>
+                <h2 class="text-xl font-bold">Panel Administrativo</h2>
+                <nav class="hidden lg:flex gap-6 ml-10">
+                    <button onclick="switchTab('stats')" class="admin-tab pb-2 font-semibold" id="tab-stats">Estadísticas</button>
+                    <button onclick="switchTab('sessions')" class="admin-tab pb-2 font-semibold" id="tab-sessions">Sesiones</button>
+                    <button onclick="switchTab('sections')" class="admin-tab pb-2 font-semibold" id="tab-sections">Secciones</button>
+                    <button onclick="switchTab('paths')" class="admin-tab pb-2 font-semibold" id="tab-paths">Trayectorias</button>
+                    <button onclick="switchTab('config')" class="admin-tab pb-2 font-semibold" id="tab-config">Configuración</button>
+                </nav>
+            </div>
+            <button onclick="exitAdmin()" class="bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-500 px-6 py-2 rounded-xl font-bold hover:bg-red-600 hover:text-white transition shadow-sm">Cerrar</button>
+        </header>
+
+        <main class="flex-1 overflow-y-auto p-6 md:p-10 bg-slate-50 dark:bg-slate-900/50">
+            <div id="panel-stats" class="admin-panel-content space-y-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="glass-card p-8 rounded-3xl shadow-sm">
+                        <h3 class="font-bold text-lg mb-6 flex items-center gap-2 text-cnciBlue"><i class="fas fa-chart-pie"></i> Sesiones por Trayectoria</h3>
+                        <canvas id="chartTrayectorias" class="max-h-72"></canvas>
+                    </div>
+                    <div class="glass-card p-8 rounded-3xl shadow-sm">
+                        <h3 class="font-bold text-lg mb-6 flex items-center gap-2 text-cnciOrange"><i class="fas fa-layer-group"></i> Sesiones por Sección</h3>
+                        <canvas id="chartSecciones" class="max-h-72"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div id="panel-sessions" class="admin-panel-content hidden space-y-6">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div class="flex gap-3 w-full md:w-auto">
+                        <input type="text" id="session-search" placeholder="Buscar sesión..." class="flex-1 md:w-80 shadow-sm" oninput="renderSessionsTable()">
+                    </div>
+                    <button onclick="openSessionEditor()" class="w-full md:w-auto bg-cnciBlue text-white px-8 py-3 rounded-xl font-bold hover:bg-cnciBlue/90 transition shadow-lg shadow-cnciBlue/20">+ Nueva Sesión</button>
+                </div>
+                <div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-slate-100 dark:bg-slate-800 text-xs uppercase text-slate-500 font-bold">
+                            <tr>
+                                <th class="p-5">Sesión / Ponente</th>
+                                <th class="p-5">Horario</th>
+                                <th class="p-5">Categoría</th>
+                                <th class="p-5">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sessions-table-body" class="divide-y divide-slate-100 dark:divide-white/5"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="panel-sections" class="admin-panel-content hidden max-w-3xl mx-auto space-y-6">
+                <div class="flex gap-3">
+                    <input type="text" id="new-section-name" placeholder="Nueva sección..." class="flex-1 shadow-sm">
+                    <button onclick="addGeneric('secciones')" class="bg-cnciBlue text-white px-8 py-4 rounded-xl font-bold shadow-lg shadow-cnciBlue/20">Añadir Sección</button>
+                </div>
+                <div id="list-sections" class="grid gap-3"></div>
+            </div>
+
+            <div id="panel-paths" class="admin-panel-content hidden max-w-3xl mx-auto space-y-6">
+                <div class="flex gap-3">
+                    <input type="text" id="new-path-name" placeholder="Nueva trayectoria..." class="flex-1 shadow-sm">
+                    <button onclick="addGeneric('trayectorias')" class="bg-cnciOrange text-white px-8 py-4 rounded-xl font-bold shadow-lg shadow-cnciOrange/20">Añadir Trayectoria</button>
+                </div>
+                <div id="list-paths" class="grid gap-3"></div>
+            </div>
+
+            <div id="panel-config" class="admin-panel-content hidden max-w-xl mx-auto">
+                <div class="glass-card p-8 rounded-3xl shadow-sm space-y-6">
+                    <h3 class="font-bold text-xl flex items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-4">Seguridad y Sistema</h3>
+                    <div class="space-y-4">
+                        <div class="flex flex-col gap-2">
+                            <label class="text-sm font-bold text-slate-500">Contraseña Administrador</label>
+                            <input type="password" id="cfg-admin-pass" class="w-full text-lg">
+                        </div>
+                        <button onclick="saveConfig()" class="w-full bg-cnciBlue text-white py-4 rounded-xl font-bold shadow-lg shadow-cnciBlue/20">Guardar Cambios</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Sesión Viewer -->
+    <div id="modal-viewer" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        <div class="bg-white dark:bg-darkCard w-full max-w-5xl rounded-[2.5rem] overflow-hidden shadow-2xl">
+             <div class="relative h-60 md:h-80">
+                <img id="view-img" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-gradient-to-t from-white dark:from-darkCard via-transparent"></div>
+                <button onclick="closeViewer()" class="absolute top-6 right-6 bg-white/20 hover:bg-white/40 backdrop-blur-md text-white p-3 rounded-full transition">
+                    <i class="fas fa-times"></i>
+                </button>
+             </div>
+             <div class="px-8 pb-10 -mt-20 relative z-10 grid lg:grid-cols-3 gap-10">
+                 <div class="lg:col-span-2 space-y-6">
+                    <div class="flex flex-wrap gap-2 items-center">
+                        <span id="view-tray" class="bg-cnciBlue/10 text-cnciBlue text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest"></span>
+                        <span id="view-sec" class="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest"></span>
+                    </div>
+                    <h2 id="view-title" class="text-3xl md:text-5xl font-black leading-tight"></h2>
+                    <p id="view-desc" class="text-slate-600 dark:text-slate-300 text-lg leading-relaxed"></p>
+                    <div class="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10">
+                        <div class="w-12 h-12 bg-cnciOrange text-white rounded-full flex items-center justify-center shadow-lg shadow-cnciOrange/30">
+                            <i class="fas fa-user-tie text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-500 font-bold uppercase">Ponente</p>
+                            <span id="view-ponente" class="font-bold text-xl"></span>
+                        </div>
+                    </div>
+                 </div>
+                 <div class="space-y-5">
+                    <div class="bg-slate-50 dark:bg-white/5 p-6 rounded-3xl border border-slate-200 dark:border-white/10 space-y-4">
+                        <div class="flex items-center gap-4">
+                            <i class="far fa-calendar-check text-cnciBlue text-2xl"></i> 
+                            <div>
+                                <p class="text-[10px] uppercase font-bold text-slate-400">Fecha</p>
+                                <span id="view-date" class="font-bold"></span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <i class="far fa-clock text-cnciOrange text-2xl"></i> 
+                            <div>
+                                <p class="text-[10px] uppercase font-bold text-slate-400">Horario</p>
+                                <span id="view-time" class="font-bold"></span> <span class="ml-1 text-[9px] bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded font-bold">UTC-6</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="space-y-3 pt-4">
+                        <a id="view-link" target="_blank" class="flex items-center justify-center w-full py-5 bg-cnciBlue hover:bg-cnciBlue/90 text-white rounded-2xl text-center font-bold transition shadow-xl shadow-cnciBlue/30"><i class="fas fa-video mr-3"></i> Unirse en Teams</a>
+                        <button id="view-gcal" class="flex items-center justify-center w-full py-5 border-2 border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 rounded-2xl font-bold transition"><i class="fab fa-google mr-3"></i> Añadir a Calendario</button>
+                    </div>
+                 </div>
+             </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAXZDS2BbNcYehniEXITzzUH8Key-tfVfg",
+            authDomain: "hubbienestarydesarrolloc-bd0d3.firebaseapp.com",
+            projectId: "hubbienestarydesarrolloc-bd0d3",
+            storageBucket: "hubbienestarydesarrolloc-bd0d3.firebasestorage.app",
+            messagingSenderId: "1026527693275",
+            appId: "1:1026527693275:web:b0471dec5739f583debffe",
+            measurementId: "G-KWP8N8L94V"
+        };
+        const IMGBB_API_KEY = "4d77d5c35c29ac057b3fb4db6869129d";
+        const APP_ID = "cnci-hub-2026";
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let data = { sessions: [], secciones: [], trayectorias: [], config: { adminPass: 'cnci2026' } };
+        let charts = { paths: null, sections: null };
+        let currentFilterTray = 'all';
+        let currentFilterSec = 'all';
+        let calendarDate = new Date();
+
+        // Dark Mode Logic
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        }
+        window.toggleDarkMode = () => {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.theme = isDark ? 'dark' : 'light';
+            document.getElementById('theme-icon').className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+        };
+
+        // Firebase Sync
+        onAuthStateChanged(auth, u => {
+            if (u) initSync();
+            else signInAnonymously(auth);
+        });
+
+        function initSync() {
+            onSnapshot(collection(db, 'artifacts', APP_ID, 'public', 'data', 'secciones'), snap => {
+                data.secciones = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                updateUI();
+            });
+            onSnapshot(collection(db, 'artifacts', APP_ID, 'public', 'data', 'trayectorias'), snap => {
+                data.trayectorias = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                updateUI();
+            });
+            onSnapshot(collection(db, 'artifacts', APP_ID, 'public', 'data', 'sessions'), snap => {
+                data.sessions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                updateUI();
+            });
+            onSnapshot(doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'settings'), ds => {
+                if (ds.exists()) data.config = ds.data();
+            });
+        }
+
+        function updateUI() {
+            renderHomeFilters();
+            renderHomeContent();
+            renderCalendar();
+            renderAdminLists();
+            renderAdminStats();
+            renderSessionsTable();
+        }
+
+        function renderHomeFilters() {
+            const trayContainer = document.getElementById('trayectorias-filters');
+            const secContainer = document.getElementById('secciones-filters');
+            if (!trayContainer || !secContainer) return;
+
+            trayContainer.innerHTML = `<button onclick="setFilter('tray', 'all')" class="px-6 py-2 rounded-full text-sm font-bold transition ${currentFilterTray === 'all' ? 'bg-cnciOrange text-white shadow-lg' : 'bg-white dark:bg-white/5'}">Todas</button>`;
+            data.trayectorias.filter(t => !t.hidden).forEach(t => {
+                trayContainer.innerHTML += `<button onclick="setFilter('tray', '${t.name}')" class="px-6 py-2 rounded-full text-sm font-bold transition ${currentFilterTray === t.name ? 'bg-cnciOrange text-white shadow-lg' : 'bg-white dark:bg-white/5'}">${t.name}</button>`;
+            });
+
+            secContainer.innerHTML = `<button onclick="setFilter('sec', 'all')" class="px-6 py-2 rounded-full text-sm font-bold transition ${currentFilterSec === 'all' ? 'bg-cnciBlue text-white shadow-lg' : 'bg-white dark:bg-white/5'}">Todas</button>`;
+            data.secciones.filter(s => !s.hidden).forEach(s => {
+                secContainer.innerHTML += `<button onclick="setFilter('sec', '${s.name}')" class="px-6 py-2 rounded-full text-sm font-bold transition ${currentFilterSec === s.name ? 'bg-cnciBlue text-white shadow-lg' : 'bg-white dark:bg-white/5'}">${s.name}</button>`;
+            });
+        }
+
+        window.setFilter = (type, val) => {
+            if (type === 'tray') currentFilterTray = val;
+            else currentFilterSec = val;
+            updateUI();
+        };
+
+        function renderHomeContent() {
+            const rowContainer = document.getElementById('rows-container');
+            if (!rowContainer) return;
+            rowContainer.innerHTML = '';
+
+            const now = new Date();
+            // Lógica Sesión Destacada (La más próxima)
+            const futureSessions = data.sessions
+                .filter(s => new Date(`${s.date}T${s.time}:00`) >= now)
+                .sort((a,b) => new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`));
+
+            if (futureSessions.length > 0) {
+                const session = futureSessions[0];
+                const bannerContainer = document.getElementById('banner-container');
+                const bannerTitle = document.getElementById('banner-title');
+                const bannerDesc = document.getElementById('banner-desc');
+                const bannerBadge = document.getElementById('banner-badge');
+                const bannerHero = document.getElementById('banner-hero');
+
+                bannerContainer.innerHTML = `<div class="absolute inset-0 bg-cover bg-center transition duration-1000" style="background-image: url('${session.img}')"></div>`;
+                bannerTitle.textContent = session.title;
+                bannerDesc.textContent = session.desc;
+                bannerHero.onclick = () => window.showSession(session);
+
+                // Lógica de "En Vivo" (30 min antes y 1 hora después)
+                const sessionStart = new Date(`${session.date}T${session.time}:00`);
+                const diffMin = (now - sessionStart) / 60000;
+                
+                if (diffMin >= -5 && diffMin <= 60) {
+                    bannerBadge.innerHTML = `<span class="bg-red-600 animate-pulse text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase mb-4 inline-block shadow-lg">¡En vivo - Ingresa ahora!</span>`;
+                } else {
+                    bannerBadge.innerHTML = `<span class="bg-cnciOrange text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase mb-4 inline-block shadow-lg">Próxima Sesión</span>`;
+                }
+            }
+
+            // Filas por Secciones
+            data.secciones.filter(sec => !sec.hidden).forEach(sec => {
+                if (currentFilterSec !== 'all' && currentFilterSec !== sec.name) return;
+
+                const filteredSessions = data.sessions.filter(s => {
+                    const matchSec = s.seccion === sec.name;
+                    const matchTray = currentFilterTray === 'all' || s.trayectoria === currentFilterTray;
+                    return matchSec && matchTray && new Date(`${s.date}T${s.time}:00`) >= now;
+                }).sort((a,b) => new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`));
+
+                if (filteredSessions.length > 0) {
+                    const html = `
+                        <div class="space-y-6">
+                            <h3 class="text-xl font-black text-slate-800 dark:text-white uppercase tracking-wider px-2 border-l-4 border-cnciBlue pl-4">${sec.name}</h3>
+                            <div class="flex overflow-x-auto gap-8 pb-4 netflix-row scroll-smooth px-2">
+                                ${filteredSessions.map(s => `
+                                    <div onclick="showSession(${JSON.stringify(s).replace(/"/g, '&quot;')})" class="min-w-[280px] md:min-w-[380px] group cursor-pointer">
+                                        <div class="relative h-52 rounded-[2rem] overflow-hidden border border-slate-200 dark:border-white/10 glass-card shadow-lg transition-all duration-500 group-hover:-translate-y-2 group-hover:shadow-2xl">
+                                            <img src="${s.img}" class="w-full h-full object-cover group-hover:scale-110 transition duration-700">
+                                            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all"></div>
+                                        </div>
+                                        <div class="mt-4 px-2">
+                                            <p class="text-[10px] font-black text-cnciBlue uppercase tracking-widest mb-1">${s.trayectoria}</p>
+                                            <h4 class="font-bold text-lg line-clamp-1 group-hover:text-cnciBlue transition">${s.title}</h4>
+                                            <div class="flex items-center gap-3 mt-2 text-xs text-slate-500 font-medium">
+                                                <span><i class="far fa-calendar-alt text-cnciOrange"></i> ${s.date}</span>
+                                                <span><i class="far fa-clock text-cnciBlue"></i> ${s.time}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                    rowContainer.innerHTML += html;
+                }
+            });
+        }
+
+        // Calendario Logic
+        function renderCalendar() {
+            const grid = document.getElementById('calendar-grid');
+            const monthLabel = document.getElementById('calendar-month');
+            if (!grid) return;
+
+            const year = calendarDate.getFullYear();
+            const month = calendarDate.getMonth();
+            const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+            
+            monthLabel.textContent = `${monthNames[month]} ${year}`;
+            
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            
+            grid.innerHTML = '';
+            
+            // Espacios vacíos
+            for (let i = 0; i < firstDay; i++) {
+                grid.innerHTML += `<div class="calendar-day p-4 border-r border-b border-slate-100 dark:border-white/5 opacity-50"></div>`;
+            }
+
+            // Días reales
+            const today = new Date();
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                const isToday = today.getDate() === d && today.getMonth() === month && today.getFullYear() === year;
+                const daySessions = data.sessions.filter(s => s.date === dStr);
+
+                grid.innerHTML += `
+                    <div class="calendar-day p-4 border-r border-b border-slate-100 dark:border-white/5 ${isToday ? 'bg-cnciBlue/5 dark:bg-cnciBlue/10' : ''}">
+                        <div class="text-sm font-bold ${isToday ? 'text-cnciBlue' : 'text-slate-400'} mb-2">${d}</div>
+                        <div class="space-y-1">
+                            ${daySessions.map(s => `
+                                <div onclick="showSession(${JSON.stringify(s).replace(/"/g, '&quot;')})" 
+                                    class="text-[9px] font-bold p-1 rounded bg-cnciBlue/10 text-cnciBlue truncate cursor-pointer hover:bg-cnciBlue hover:text-white transition">
+                                    ${s.time} ${s.title}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        window.changeMonth = (dir) => {
+            calendarDate.setMonth(calendarDate.getMonth() + dir);
+            renderCalendar();
+        };
+
+        window.showSession = (s) => {
+            document.getElementById('view-img').src = s.img;
+            document.getElementById('view-title').textContent = s.title;
+            document.getElementById('view-desc').textContent = s.desc;
+            document.getElementById('view-tray').textContent = s.trayectoria;
+            document.getElementById('view-sec').textContent = s.seccion;
+            document.getElementById('view-ponente').textContent = s.ponente;
+            document.getElementById('view-date').textContent = s.date;
+            document.getElementById('view-time').textContent = s.time;
+            document.getElementById('view-link').href = s.link;
+            
+            const start = `${s.date.replace(/-/g, '')}T${s.time.replace(':', '')}00`;
+            const gcal = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(s.title)}&dates=${start}/${start}&details=${encodeURIComponent(s.desc)}&location=${encodeURIComponent(s.link)}`;
+            document.getElementById('view-gcal').onclick = () => window.open(gcal, '_blank');
+            document.getElementById('modal-viewer').classList.remove('hidden');
+        };
+
+        window.closeViewer = () => document.getElementById('modal-viewer').classList.add('hidden');
+
+        // Admin functionality
+        window.promptAdmin = () => {
+            Swal.fire({
+                title: 'Administración',
+                input: 'password',
+                inputPlaceholder: 'Ingresa contraseña',
+                showCancelButton: true,
+                confirmButtonColor: '#2a6aff'
+            }).then(r => {
+                if (r.value === data.config.adminPass) {
+                    document.getElementById('admin-view').classList.remove('translate-y-full');
+                    switchTab('stats');
+                }
+            });
+        };
+
+        window.exitAdmin = () => document.getElementById('admin-view').classList.add('translate-y-full');
+
+        window.switchTab = (tab) => {
+            document.querySelectorAll('.admin-panel-content').forEach(p => p.classList.add('hidden'));
+            document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('tab-active'));
+            document.getElementById(`panel-${tab}`).classList.remove('hidden');
+            document.getElementById(`tab-${tab}`).classList.add('tab-active');
+        };
+
+        window.addGeneric = async (coll) => {
+            const inputId = coll === 'secciones' ? 'new-section-name' : 'new-path-name';
+            const val = document.getElementById(inputId).value;
+            if (!val) {
+                Swal.fire('Error', 'Debes ingresar un nombre', 'error');
+                return;
+            }
+            const id = val.toLowerCase().trim().replace(/\s+/g, '-');
+            await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', coll, id), { name: val, hidden: false });
+            document.getElementById(inputId).value = '';
+            Swal.fire({ icon: 'success', title: 'Agregado', timer: 1000, showConfirmButton: false });
+        };
+
+        window.deleteGeneric = async (coll, id) => {
+            const r = await Swal.fire({ title: '¿Eliminar?', icon: 'warning', showCancelButton: true });
+            if (r.isConfirmed) await deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', coll, id));
+        };
+
+        window.toggleVisibility = async (coll, id, current) => {
+            await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', coll, id), { hidden: !current }, { merge: true });
+        };
+
+        window.renderAdminLists = () => {
+            const listS = document.getElementById('list-sections');
+            const listP = document.getElementById('list-paths');
+            if (!listS || !listP) return;
+
+            listS.innerHTML = data.secciones.map(s => `
+                <div class="flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-white/5">
+                    <span class="font-bold ${s.hidden ? 'opacity-30' : ''}">${s.name}</span>
+                    <div class="flex gap-2">
+                        <button onclick="toggleVisibility('secciones','${s.id}',${s.hidden})" class="p-2"><i class="fas ${s.hidden ? 'fa-eye-slash' : 'fa-eye text-cnciBlue'}"></i></button>
+                        <button onclick="deleteGeneric('secciones','${s.id}')" class="p-2 text-red-500"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+
+            listP.innerHTML = data.trayectorias.map(t => `
+                <div class="flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-white/5">
+                    <span class="font-bold ${t.hidden ? 'opacity-30' : ''}">${t.name}</span>
+                    <div class="flex gap-2">
+                        <button onclick="toggleVisibility('trayectorias','${t.id}',${t.hidden})" class="p-2"><i class="fas ${t.hidden ? 'fa-eye-slash' : 'fa-eye text-cnciOrange'}"></i></button>
+                        <button onclick="deleteGeneric('trayectorias','${t.id}')" class="p-2 text-red-500"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        };
+
+        window.renderSessionsTable = () => {
+            const body = document.getElementById('sessions-table-body');
+            const query = document.getElementById('session-search')?.value.toLowerCase() || "";
+            if (!body) return;
+
+            body.innerHTML = data.sessions.filter(s => s.title.toLowerCase().includes(query)).map(s => `
+                <tr class="border-b border-slate-100 dark:border-white/5 text-sm">
+                    <td class="p-5">
+                        <div class="font-bold text-cnciBlue">${s.title}</div>
+                        <div class="text-xs text-slate-500">${s.ponente}</div>
+                    </td>
+                    <td class="p-5">${s.date} ${s.time}</td>
+                    <td class="p-5 font-bold text-[10px] uppercase">${s.seccion}</td>
+                    <td class="p-5 flex gap-2">
+                        <button onclick="editSession('${s.id}')" class="text-cnciBlue"><i class="fas fa-edit"></i></button>
+                        <button onclick="deleteSession('${s.id}')" class="text-red-500"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        };
+
+        window.deleteSession = async (id) => {
+            const r = await Swal.fire({ title: '¿Eliminar sesión?', icon: 'warning', showCancelButton: true });
+            if (r.isConfirmed) await deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'sessions', id));
+        };
+
+        window.editSession = (id) => openSessionEditor(id);
+
+        window.openSessionEditor = async (existingId = null) => {
+            const s = existingId ? data.sessions.find(x => x.id === existingId) : { title: '', desc: '', ponente: '', date: '', time: '', seccion: '', trayectoria: '', link: '', img: '' };
+            
+            const { value: f } = await Swal.fire({
+                title: existingId ? 'Editar Sesión' : 'Nueva Sesión',
+                width: '600px',
+                html: `
+                    <div class="text-left space-y-4 pt-4">
+                        <input id="swal-title" placeholder="Título" value="${s.title}" class="w-full">
+                        <textarea id="swal-desc" placeholder="Descripción" class="w-full h-24">${s.desc}</textarea>
+                        <div class="grid grid-cols-2 gap-3">
+                            <input id="swal-ponente" placeholder="Ponente" value="${s.ponente}">
+                            <input id="swal-link" placeholder="Link Reunión" value="${s.link}">
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <input type="date" id="swal-date" value="${s.date}">
+                            <input type="time" id="swal-time" value="${s.time}">
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <select id="swal-sec">
+                                ${data.secciones.map(x => `<option value="${x.name}" ${x.name === s.seccion ? 'selected':''}>${x.name}</option>`).join('')}
+                            </select>
+                            <select id="swal-tray">
+                                ${data.trayectorias.map(x => `<option value="${x.name}" ${x.name === s.trayectoria ? 'selected':''}>${x.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="space-y-2">
+                             <input type="file" id="swal-img-file" class="hidden" onchange="uploadToImgBB(this)">
+                             <div class="flex gap-2">
+                                <button onclick="document.getElementById('swal-img-file').click()" class="bg-cnciBlue text-white px-3 py-1 rounded text-xs">Subir Imagen</button>
+                                <input id="swal-img-url" placeholder="URL Imagen" value="${s.img}" class="flex-1 text-xs">
+                             </div>
+                        </div>
+                    </div>
+                `,
+                preConfirm: () => ({
+                    title: document.getElementById('swal-title').value,
+                    desc: document.getElementById('swal-desc').value,
+                    ponente: document.getElementById('swal-ponente').value,
+                    link: document.getElementById('swal-link').value,
+                    date: document.getElementById('swal-date').value,
+                    time: document.getElementById('swal-time').value,
+                    seccion: document.getElementById('swal-sec').value,
+                    trayectoria: document.getElementById('swal-tray').value,
+                    img: document.getElementById('swal-img-url').value
+                })
+            });
+
+            if (f) {
+                const id = existingId || Date.now().toString();
+                await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'sessions', id), f);
+                Swal.fire({ icon: 'success', title: 'Guardado', timer: 1000 });
+            }
+        };
+
+        window.uploadToImgBB = async (input) => {
+            if (!input.files?.[0]) return;
+            Swal.showLoading();
+            const fd = new FormData();
+            fd.append('image', input.files[0]);
+            try {
+                const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: 'POST', body: fd });
+                const json = await res.json();
+                if (json.success) document.getElementById('swal-img-url').value = json.data.url;
+                Swal.hideLoading();
+            } catch (e) { Swal.fire('Error', 'No se pudo subir', 'error'); }
+        };
+
+        function renderAdminStats() {
+            const chartP = document.getElementById('chartTrayectorias');
+            const chartS = document.getElementById('chartSecciones');
+            if (!chartP || !chartS) return;
+
+            if (charts.paths) charts.paths.destroy();
+            if (charts.sections) charts.sections.destroy();
+
+            const pC = {}; data.sessions.forEach(s => pC[s.trayectoria] = (pC[s.trayectoria] || 0) + 1);
+            const sC = {}; data.sessions.forEach(s => sC[s.seccion] = (sC[s.seccion] || 0) + 1);
+
+            charts.paths = new Chart(chartP, {
+                type: 'bar',
+                data: { labels: Object.keys(pC), datasets: [{ label: 'Sesiones', data: Object.values(pC), backgroundColor: '#2a6aff' }] },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+            charts.sections = new Chart(chartS, {
+                type: 'doughnut',
+                data: { labels: Object.keys(sC), datasets: [{ data: Object.values(sC), backgroundColor: ['#2a6aff','#ff8500','#10b981','#8b5cf6','#ef4444'] }] },
+                options: { responsive: true, cutout: '70%' }
+            });
+        }
+
+        window.saveConfig = async () => {
+            const pass = document.getElementById('cfg-admin-pass').value;
+            await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'settings'), { adminPass: pass });
+            Swal.fire('Guardado', '', 'success');
+        };
+
+        window.scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+        window.scrollToSection = (id) => {
+            const el = document.getElementById(id);
+            if (el) window.scrollTo({ top: el.offsetTop - 100, behavior: 'smooth' });
+        };
+
+    </script>
+</body>
+</html>
