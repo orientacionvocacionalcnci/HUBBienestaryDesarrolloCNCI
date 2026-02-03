@@ -30,7 +30,6 @@
     <style>
         body { font-family: 'Outfit', sans-serif; transition: background-color 0.3s, color 0.3s; }
         
-        /* Contenedor con Scroll Snap */
         .netflix-row { 
             display: flex;
             overflow-x: auto;
@@ -108,7 +107,6 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* Botones de navegación de fila */
         .nav-btn {
             position: absolute;
             top: 50%;
@@ -132,6 +130,16 @@
         .nav-btn:hover { background: #2a6aff; color: white; scale: 1.1; }
         .nav-btn.left { left: -25px; }
         .nav-btn.right { right: -25px; }
+
+        /* Estilos específicos para badges en el calendario */
+        .cal-badge {
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+        .cal-badge:hover {
+            filter: brightness(0.9);
+            transform: translateX(2px);
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 dark:bg-darkBg dark:text-slate-100 min-h-screen">
@@ -160,6 +168,11 @@
             <div class="absolute bottom-20 left-6 md:left-12 max-w-4xl z-10">
                 <div id="banner-badge"></div>
                 <h2 id="banner-title" class="text-4xl md:text-7xl font-black mb-4 leading-tight drop-shadow-2xl"></h2>
+                <div class="flex items-center gap-4 mb-6 text-slate-500 dark:text-slate-400 font-bold text-sm uppercase tracking-widest">
+                    <span id="banner-meta-time"></span>
+                    <span class="w-1.5 h-1.5 bg-slate-300 rounded-full"></span>
+                    <span>Zona UTC-6 (CDMX)</span>
+                </div>
                 <p id="banner-desc" class="text-slate-700 dark:text-slate-300 text-lg md:text-2xl line-clamp-2 max-w-2xl font-medium mb-10 opacity-90"></p>
                 <div id="hero-action-container"></div>
             </div>
@@ -199,10 +212,8 @@
                 </div>
             </section>
 
-            <!-- Sesiones -->
             <div id="rows-container" class="space-y-32"></div>
 
-            <!-- Calendario -->
             <section id="calendario-sec" class="pt-10 pb-20">
                 <div class="flex flex-col md:flex-row justify-between items-center mb-12 gap-6">
                     <div class="flex items-center gap-4">
@@ -270,7 +281,7 @@
                 <div class="bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden border border-slate-200 dark:border-white/5">
                     <table class="w-full text-left">
                         <thead class="bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase text-slate-400">
-                            <tr><th class="p-6">Sesión</th><th class="p-6">Trayectoria/Sección</th><th class="p-6">Fecha/Hora</th><th class="p-6 text-right">Acciones</th></tr>
+                            <tr><th class="p-6">Sesión</th><th class="p-6">Trayectoria/Sección</th><th class="p-6">Fecha/Hora (UTC-6)</th><th class="p-6 text-right">Acciones</th></tr>
                         </thead>
                         <tbody id="sessions-table-body" class="divide-y divide-slate-100 dark:divide-white/5"></tbody>
                     </table>
@@ -333,7 +344,10 @@
                         </div>
                         <div class="flex items-center gap-5">
                             <i class="far fa-clock text-2xl text-cnciBlue"></i>
-                            <div><p class="text-[10px] uppercase font-black text-slate-400">Hora</p><span id="view-time" class="font-bold text-xl"></span></div>
+                            <div>
+                                <p class="text-[10px] uppercase font-black text-slate-400">Horario (UTC-6)</p>
+                                <span id="view-time" class="font-bold text-xl"></span>
+                            </div>
                         </div>
                     </div>
                     <div id="viewer-action-container"></div>
@@ -368,6 +382,16 @@
         let calendarDate = new Date();
         let charts = { paths: null, sections: null };
 
+        // Colores de trayectoria para el calendario
+        const trayColors = {
+            'Desarrollo Humano': 'bg-pink-100 text-pink-700 border-pink-400 dark:bg-pink-900/30 dark:text-pink-300',
+            'Desarrollo Profesional': 'bg-blue-100 text-blue-700 border-blue-400 dark:bg-blue-900/30 dark:text-blue-300',
+            'Bienestar Integral': 'bg-green-100 text-green-700 border-green-400 dark:bg-green-900/30 dark:text-green-300',
+            'Salud Mental': 'bg-purple-100 text-purple-700 border-purple-400 dark:bg-purple-900/30 dark:text-purple-300',
+            'Liderazgo': 'bg-amber-100 text-amber-700 border-amber-400 dark:bg-amber-900/30 dark:text-amber-300',
+            'default': 'bg-slate-100 text-slate-700 border-slate-400 dark:bg-white/5 dark:text-slate-300'
+        };
+
         onAuthStateChanged(auth, u => { if (u) initSync(); else signInAnonymously(auth); });
 
         function initSync() {
@@ -386,7 +410,6 @@
             updateAdminSelects();
         }
 
-        // Navegación de filas
         window.scrollRow = (id, direction) => {
             const row = document.getElementById(id);
             if (row) {
@@ -413,6 +436,7 @@
                 document.getElementById('banner-container').innerHTML = `<img src="${featured.img}" class="w-full h-full object-cover">`;
                 document.getElementById('banner-title').textContent = featured.title;
                 document.getElementById('banner-desc').textContent = featured.desc;
+                document.getElementById('banner-meta-time').textContent = `${featured.date} • ${featured.time}`;
                 document.getElementById('banner-badge').innerHTML = status === 'live' 
                     ? `<div class="bg-red-600 animate-pulse text-white text-[10px] font-black px-4 py-2 rounded-full uppercase mb-6 inline-flex items-center gap-2 shadow-xl"><span class="w-2 h-2 bg-white rounded-full"></span> En vivo ahora</div>`
                     : `<div class="bg-cnciOrange text-white text-[10px] font-black px-4 py-2 rounded-full uppercase mb-6 inline-block">Próximamente</div>`;
@@ -440,6 +464,7 @@
                                                 <div class="absolute bottom-6 left-8 right-8">
                                                     <p class="text-[9px] font-black text-cnciOrange uppercase tracking-[0.2em] mb-1">${s.trayectoria}</p>
                                                     <h4 class="font-bold text-xl text-white leading-tight">${s.title}</h4>
+                                                    <p class="text-[9px] text-slate-400 mt-2 font-bold uppercase tracking-widest">${s.time} (UTC-6)</p>
                                                 </div>
                                             </div>
                                         </div>`).join('')}
@@ -451,7 +476,6 @@
             });
         }
 
-        // --- FUNCIONES CORE (Siguen iguales) ---
         function updateAdminSelects() {
             const fTray = document.getElementById('admin-filter-tray');
             const fSec = document.getElementById('admin-filter-sec');
@@ -474,8 +498,17 @@
         function getLiveStatus(session) {
             const now = new Date();
             const start = new Date(`${session.date}T${session.time}:00`);
-            const duration = parseInt(session.duration || 60);
-            const end = new Date(start.getTime() + duration * 60000);
+            // Parse duration like "45 mins" or "01:30"
+            let durationMinutes = 60;
+            if (session.duration) {
+                if (session.duration.includes('min')) {
+                    durationMinutes = parseInt(session.duration) || 60;
+                } else if (session.duration.includes(':')) {
+                    const parts = session.duration.split(':');
+                    durationMinutes = (parseInt(parts[0]) * 60) + (parseInt(parts[1]) || 0);
+                }
+            }
+            const end = new Date(start.getTime() + durationMinutes * 60000);
             if (now >= start && now <= end) return 'live';
             if (now < start) return 'upcoming';
             return 'past';
@@ -491,7 +524,16 @@
             document.getElementById('view-ponente').textContent = s.ponente;
             document.getElementById('view-date').textContent = s.date;
             document.getElementById('view-time').textContent = s.time;
-            document.getElementById('viewer-action-container').innerHTML = status === 'live' ? `<a href="${s.link}" target="_blank" class="w-full py-6 bg-cnciBlue text-white rounded-3xl font-black text-center shadow-2xl transition flex items-center justify-center gap-4">UNIRME AHORA</a>` : `<div class="p-6 bg-slate-100 dark:bg-white/5 rounded-3xl text-center"><p class="text-sm font-bold text-slate-400">Sesión Programada</p></div>`;
+            
+            const btnContainer = document.getElementById('viewer-action-container');
+            if (status === 'live') {
+                btnContainer.innerHTML = `<a href="${s.link}" target="_blank" class="w-full py-6 bg-cnciBlue text-white rounded-3xl font-black text-center shadow-2xl transition flex items-center justify-center gap-4 hover:scale-105 active:scale-95">UNIRME AHORA</a>`;
+            } else {
+                btnContainer.innerHTML = `<div class="p-6 bg-slate-100 dark:bg-white/5 rounded-3xl text-center flex flex-col items-center gap-1">
+                    <span class="text-[10px] uppercase font-black text-slate-400">Duración Estimada</span>
+                    <span class="font-bold text-xl text-slate-700 dark:text-slate-200">${s.duration || '60 mins'}</span>
+                </div>`;
+            }
             document.getElementById('modal-viewer').classList.remove('hidden');
         };
 
@@ -525,24 +567,54 @@
                 showCancelButton: true,
                 confirmButtonColor: '#2a6aff',
                 html: `<div class="text-left space-y-4">
-                    <input id="swal-title" class="swal2-input !m-0 !w-full" placeholder="Título" value="${sessionData ? sessionData.title : ''}">
-                    <input id="swal-ponente" class="swal2-input !m-0 !w-full" placeholder="Ponente" value="${sessionData ? sessionData.ponente : ''}">
-                    <div class="grid grid-cols-2 gap-4"><input id="swal-date" type="date" class="swal2-input !m-0 !w-full" value="${sessionData ? sessionData.date : ''}"><input id="swal-time" type="time" class="swal2-input !m-0 !w-full" value="${sessionData ? sessionData.time : ''}"></div>
-                    <select id="swal-tray" class="swal2-input !m-0 !w-full">${data.trayectorias.map(t => `<option value="${t.name}" ${sessionData?.trayectoria === t.name ? 'selected' : ''}>${t.name}</option>`).join('')}</select>
-                    <select id="swal-sec" class="swal2-input !m-0 !w-full">${data.secciones.map(s => `<option value="${s.name}" ${sessionData?.seccion === s.name ? 'selected' : ''}>${s.name}</option>`).join('')}</select>
+                    <input id="swal-title" class="swal2-input !m-0 !w-full" placeholder="Título de la sesión" value="${sessionData ? sessionData.title : ''}">
+                    <input id="swal-ponente" class="swal2-input !m-0 !w-full" placeholder="Nombre del Ponente" value="${sessionData ? sessionData.ponente : ''}">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                             <label class="text-[9px] uppercase font-black text-slate-400 ml-2">Fecha</label>
+                             <input id="swal-date" type="date" class="swal2-input !m-0 !w-full" value="${sessionData ? sessionData.date : ''}">
+                        </div>
+                        <div>
+                             <label class="text-[9px] uppercase font-black text-slate-400 ml-2">Hora (UTC-6)</label>
+                             <input id="swal-time" type="time" class="swal2-input !m-0 !w-full" value="${sessionData ? sessionData.time : ''}">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[9px] uppercase font-black text-slate-400 ml-2">Duración (Ej: 45 mins, 01:30 hrs)</label>
+                        <input id="swal-duration" type="text" class="swal2-input !m-0 !w-full" placeholder="Ej: 45 mins" value="${sessionData?.duration || ''}">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <select id="swal-tray" class="swal2-input !m-0 !w-full">${data.trayectorias.map(t => `<option value="${t.name}" ${sessionData?.trayectoria === t.name ? 'selected' : ''}>${t.name}</option>`).join('')}</select>
+                        <select id="swal-sec" class="swal2-input !m-0 !w-full">${data.secciones.map(s => `<option value="${s.name}" ${sessionData?.seccion === s.name ? 'selected' : ''}>${s.name}</option>`).join('')}</select>
+                    </div>
                     <div class="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 border-dashed border-slate-200 dark:border-white/10">
-                        <label class="text-[10px] font-black uppercase text-slate-400 block mb-2">Cargar Imagen (ImgBB)</label>
+                        <label class="text-[10px] font-black uppercase text-slate-400 block mb-2">Cargar Miniatura (16:9)</label>
                         <input type="file" id="swal-file-input" onchange="uploadImage()" class="text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-cnciBlue file:text-white cursor-pointer">
                         <div id="upload-status" class="mt-2 h-4"></div>
                     </div>
-                    <input id="swal-img" class="swal2-input !m-0 !w-full" placeholder="URL Imagen" value="${sessionData ? sessionData.img : ''}">
-                    <input id="swal-link" class="swal2-input !m-0 !w-full" placeholder="Link de Sesión" value="${sessionData ? sessionData.link : ''}">
-                    <textarea id="swal-desc" class="swal2-textarea !m-0 !w-full" placeholder="Descripción">${sessionData ? sessionData.desc : ''}</textarea>
+                    <input id="swal-img" class="swal2-input !m-0 !w-full" placeholder="URL de Imagen Directa" value="${sessionData ? sessionData.img : ''}">
+                    <input id="swal-link" class="swal2-input !m-0 !w-full" placeholder="Enlace de la sesión (MS Teams / Zoom)" value="${sessionData ? sessionData.link : ''}">
+                    <textarea id="swal-desc" class="swal2-textarea !m-0 !w-full" placeholder="Resumen de la sesión..."></textarea>
                 </div>`,
+                didOpen: () => {
+                    if (sessionData) document.getElementById('swal-desc').value = sessionData.desc;
+                },
                 preConfirm: () => {
                     const title = document.getElementById('swal-title').value;
                     if(!title) return Swal.showValidationMessage('Título requerido');
-                    return { title, ponente: document.getElementById('swal-ponente').value, date: document.getElementById('swal-date').value, time: document.getElementById('swal-time').value, trayectoria: document.getElementById('swal-tray').value, seccion: document.getElementById('swal-sec').value, img: document.getElementById('swal-img').value, link: document.getElementById('swal-link').value, desc: document.getElementById('swal-desc').value, id: sessionData ? sessionData.id : crypto.randomUUID() };
+                    return { 
+                        title, 
+                        ponente: document.getElementById('swal-ponente').value, 
+                        date: document.getElementById('swal-date').value, 
+                        time: document.getElementById('swal-time').value, 
+                        duration: document.getElementById('swal-duration').value,
+                        trayectoria: document.getElementById('swal-tray').value, 
+                        seccion: document.getElementById('swal-sec').value, 
+                        img: document.getElementById('swal-img').value, 
+                        link: document.getElementById('swal-link').value, 
+                        desc: document.getElementById('swal-desc').value, 
+                        id: sessionData ? sessionData.id : crypto.randomUUID() 
+                    };
                 }
             });
             if (formValues) { await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'sessions', formValues.id), formValues); Swal.fire({ icon: 'success', title: '¡Hecho!', timer: 800, showConfirmButton: false }); }
@@ -556,11 +628,23 @@
             label.textContent = `${new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(calendarDate)}`;
             grid.innerHTML = '';
             const first = new Date(y, m, 1).getDay(), total = new Date(y, m + 1, 0).getDate();
-            for (let i = 0; i < first; i++) grid.innerHTML += `<div class="p-6 border-r border-b border-slate-100 dark:border-white/5 opacity-10"></div>`;
+            for (let i = 0; i < first; i++) grid.innerHTML += `<div class="p-4 md:p-6 border-r border-b border-slate-100 dark:border-white/5 opacity-10"></div>`;
             for (let d = 1; d <= total; d++) {
                 const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
                 const sess = data.sessions.filter(s => s.date === dateStr);
-                grid.innerHTML += `<div class="p-6 border-r border-b border-slate-100 dark:border-white/5 min-h-[140px]"><span class="text-sm font-black text-slate-300">${d}</span><div class="mt-3 space-y-1">${sess.map(s => `<div onclick='showSession(${JSON.stringify(s).replace(/'/g, "&#39;")})' class="text-[9px] font-black p-2 rounded-lg bg-slate-100 dark:bg-white/5 truncate cursor-pointer hover:bg-cnciBlue hover:text-white transition">${s.title}</div>`).join('')}</div></div>`;
+                grid.innerHTML += `
+                    <div class="p-4 md:p-6 border-r border-b border-slate-100 dark:border-white/5 min-h-[120px] md:min-h-[160px]">
+                        <span class="text-xs md:text-sm font-black text-slate-300">${d}</span>
+                        <div class="mt-2 space-y-1">
+                            ${sess.map(s => {
+                                const colorClass = trayColors[s.trayectoria] || trayColors['default'];
+                                return `<div onclick='showSession(${JSON.stringify(s).replace(/'/g, "&#39;")})' 
+                                     class="cal-badge text-[8px] md:text-[9px] font-bold p-1.5 md:p-2 rounded-lg truncate cursor-pointer ${colorClass}">
+                                     ${s.time} - ${s.title}
+                                </div>`;
+                            }).join('')}
+                        </div>
+                    </div>`;
             }
         }
         window.changeMonth = (n) => { calendarDate.setMonth(calendarDate.getMonth() + n); renderCalendar(); };
@@ -571,13 +655,13 @@
             const fTray = document.getElementById('admin-filter-tray').value;
             const fSec = document.getElementById('admin-filter-sec').value;
             const filtered = data.sessions.filter(s => (s.title.toLowerCase().includes(search) || s.ponente.toLowerCase().includes(search)) && (fTray === 'all' || s.trayectoria === fTray) && (fSec === 'all' || s.seccion === fSec));
-            body.innerHTML = filtered.map(s => `<tr><td class="p-6"><p class="font-bold">${s.title}</p><p class="text-xs text-slate-400">${s.ponente}</p></td><td class="p-6 text-[9px] font-black uppercase">${s.trayectoria} / ${s.seccion}</td><td class="p-6 text-sm text-slate-400">${s.date}</td><td class="p-6 text-right space-x-4"><button onclick='openSessionModal(${JSON.stringify(s).replace(/'/g, "&#39;")})' class="text-cnciBlue"><i class="fas fa-edit"></i></button><button onclick="deleteSession('${s.id}')" class="text-red-500"><i class="fas fa-trash"></i></button></td></tr>`).join('');
+            body.innerHTML = filtered.map(s => `<tr><td class="p-6"><p class="font-bold">${s.title}</p><p class="text-xs text-slate-400">${s.ponente}</p></td><td class="p-6 text-[9px] font-black uppercase">${s.trayectoria} / ${s.seccion}</td><td class="p-6"><p class="text-sm text-slate-400">${s.date} ${s.time}</p><p class="text-[10px] font-black text-cnciOrange">DUR: ${s.duration || '60 mins'}</p></td><td class="p-6 text-right space-x-4"><button onclick='openSessionModal(${JSON.stringify(s).replace(/'/g, "&#39;")})' class="text-cnciBlue"><i class="fas fa-edit"></i></button><button onclick="deleteSession('${s.id}')" class="text-red-500"><i class="fas fa-trash"></i></button></td></tr>`).join('');
         };
 
-        window.deleteSession = async (id) => { if((await Swal.fire({title: '¿Eliminar?', showCancelButton: true, confirmButtonColor: '#ef4444'})).isConfirmed) await deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'sessions', id)); };
+        window.deleteSession = async (id) => { if((await Swal.fire({title: '¿Eliminar sesión?', text: 'Esta acción no se puede deshacer', showCancelButton: true, confirmButtonColor: '#ef4444'})).isConfirmed) await deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'sessions', id)); };
         window.addGeneric = async (coll) => { const inpId = coll === 'secciones' ? 'new-section-name' : 'new-path-name'; const name = document.getElementById(inpId).value; if(!name) return; await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', coll, crypto.randomUUID()), { name }); document.getElementById(inpId).value = ''; };
         window.editGeneric = async (coll, item) => { const { value: newName } = await Swal.fire({ title: 'Nuevo nombre', input: 'text', inputValue: item.name }); if(newName) await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', coll, item.id), { name: newName }); };
-        window.deleteGeneric = async (coll, item) => { if((await Swal.fire({title: '¿Eliminar?', showCancelButton: true})).isConfirmed) await deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', coll, item.id)); };
+        window.deleteGeneric = async (coll, item) => { if((await Swal.fire({title: '¿Eliminar categoría?', showCancelButton: true})).isConfirmed) await deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', coll, item.id)); };
 
         function renderAdminLists() {
             document.getElementById('list-sections').innerHTML = data.secciones.map(s => `<div class="bg-slate-50 dark:bg-white/5 p-6 rounded-2xl flex justify-between items-center group"><span class="font-bold">${s.name}</span><div class="flex gap-4 opacity-0 group-hover:opacity-100 transition"><button onclick='editGeneric("secciones", ${JSON.stringify(s).replace(/'/g, "&#39;")})' class="text-cnciBlue"><i class="fas fa-edit"></i></button><button onclick='deleteGeneric("secciones", ${JSON.stringify(s).replace(/'/g, "&#39;")})' class="text-red-500"><i class="fas fa-trash"></i></button></div></div>`).join('');
@@ -589,10 +673,10 @@
             if (!ctxP || !ctxS) return;
             if (charts.paths) charts.paths.destroy();
             const pC = {}; data.sessions.forEach(s => pC[s.trayectoria] = (pC[s.trayectoria] || 0) + 1);
-            charts.paths = new Chart(ctxP, { type: 'bar', data: { labels: Object.keys(pC), datasets: [{ label: 'Sesiones', data: Object.values(pC), backgroundColor: '#2a6aff' }] } });
+            charts.paths = new Chart(ctxP, { type: 'bar', data: { labels: Object.keys(pC), datasets: [{ label: 'Sesiones', data: Object.values(pC), backgroundColor: '#2a6aff' }] }, options: { responsive: true, maintainAspectRatio: false } });
             if (charts.sections) charts.sections.destroy();
             const sC = {}; data.sessions.forEach(s => sC[s.seccion] = (sC[s.seccion] || 0) + 1);
-            charts.sections = new Chart(ctxS, { type: 'doughnut', data: { labels: Object.keys(sC), datasets: [{ data: Object.values(sC), backgroundColor: ['#2a6aff', '#ff8500', '#10b981', '#f59e0b'] }] } });
+            charts.sections = new Chart(ctxS, { type: 'doughnut', data: { labels: Object.keys(sC), datasets: [{ data: Object.values(sC), backgroundColor: ['#2a6aff', '#ff8500', '#10b981', '#f59e0b', '#8b5cf6'] }] }, options: { responsive: true, maintainAspectRatio: false } });
         }
     </script>
 </body>
