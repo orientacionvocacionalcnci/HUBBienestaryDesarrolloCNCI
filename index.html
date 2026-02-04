@@ -140,6 +140,14 @@
             filter: brightness(0.9);
             transform: translateX(2px);
         }
+        /* RECOMENDACIÓN FINAL: Ocultar barra de scroll en el menú del admin */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none; /* IE y Edge */
+            scrollbar-width: none;    /* Firefox */
+        }
     </style>
     <!-- Favicon estándar para la mayoría de los navegadores -->
     <link rel="icon" type="image/x-icon" href="favicon.ico">
@@ -169,7 +177,7 @@
             </div>
         </nav>
 
-        <header id="banner-hero" class="relative h-[85vh] mt-16 overflow-hidden bg-slate-200 dark:bg-slate-900">
+        <header id="banner-hero" class="relative h-auto mt-16 overflow-hidden bg-slate-200 dark:bg-slate-900">
             <div id="banner-container" class="relative w-full h-full"></div>
             <div class="absolute inset-0 bg-gradient-to-t from-slate-50 via-slate-50/20 to-black/30 dark:from-darkBg dark:via-darkBg/30 dark:to-black/50"></div>
             <div class="absolute bottom-20 left-6 md:left-12 max-w-4xl z-10">
@@ -191,7 +199,7 @@
                     <div class="flex flex-col lg:flex-row gap-6 items-center">
                         <div class="flex-1 relative w-full">
                             <i class="fas fa-search absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 text-xl"></i>
-                            <input type="text" id="main-search" oninput="updateUI()" placeholder="Busca sesiones, ponentes o temas..." class="w-full pl-16 py-5 bg-slate-100/50 dark:bg-slate-800/50 border-none rounded-2xl text-lg focus:ring-4 ring-cnciBlue/10">
+                            <input type="text" id="main-search" oninput="debounceSearch(false)" placeholder="Busca sesiones, ponentes o temas..." class="w-full pl-16 py-5 bg-slate-100/50 dark:bg-slate-800/50 border-none rounded-2xl text-lg focus:ring-4 ring-cnciBlue/10">
                         </div>
                         <div class="flex gap-3 w-full lg:w-auto">
                             <button onclick="toggleFilters('trayectorias')" id="btn-filter-tray" class="flex-1 lg:flex-none flex items-center justify-center gap-3 px-6 py-5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-white/10 font-bold hover:bg-slate-50 transition shadow-sm">
@@ -254,112 +262,147 @@
 
     <!-- ADMIN PANEL -->
     <div id="admin-view" class="fixed inset-0 bg-white dark:bg-slate-950 translate-y-full admin-view flex flex-col overflow-hidden">
-        <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-white/10 px-8 py-6 flex justify-between items-center">
-            <div class="flex items-center gap-4">
-                <div class="bg-cnciBlue text-white w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"><i class="fas fa-shield-alt"></i></div>
-                <h2 class="text-2xl font-black">Panel Administrativo</h2>
-            </div>
-            <div class="flex items-center gap-6">
-                <nav class="hidden lg:flex gap-10 mr-10">
-                    <button onclick="switchTab('stats')" class="admin-tab pb-2 font-bold opacity-50" id="tab-stats">Métricas</button>
-                    <button onclick="switchTab('sessions')" class="admin-tab pb-2 font-bold opacity-50" id="tab-sessions">Sesiones</button>
-                    <button onclick="switchTab('sections')" class="admin-tab pb-2 font-bold opacity-50" id="tab-sections">Secciones</button>
-                    <button onclick="switchTab('paths')" class="admin-tab pb-2 font-bold opacity-50" id="tab-paths">Trayectorias</button>
-                </nav>
-                <button onclick="exitAdmin()" class="bg-red-50 text-red-500 px-6 py-3 rounded-xl font-bold hover:bg-red-500 hover:text-white transition">Salir</button>
-            </div>
-        </header>
-
-        <main class="flex-1 overflow-y-auto p-12">
-            <div id="panel-sessions" class="admin-panel-content hidden space-y-8">
-                <div class="flex flex-col lg:flex-row justify-between lg:items-center gap-6">
-                    <h3 class="text-3xl font-black">Gestión de Sesiones</h3>
-                    <button onclick="openSessionModal()" class="bg-cnciBlue text-white px-10 py-4 rounded-2xl font-bold shadow-xl shadow-cnciBlue/20 hover:scale-105 transition">+ Crear Nueva Sesión</button>
+        <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-white/10 px-4 md:px-8 py-4 md:py-6 flex flex-col gap-4">
+            <div class="flex justify-between items-center w-full">
+                <div class="flex items-center gap-3 md:gap-4">
+                    <div class="bg-cnciBlue text-white w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg">
+                        <i class="fas fa-shield-alt text-sm md:text-base"></i>
+                    </div>
+                    <h2 class="text-xl md:text-2xl font-black">Panel Administrativo</h2>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 bg-slate-50 dark:bg-white/5 p-6 rounded-[2rem] border border-slate-200 dark:border-white/10">
+                <button onclick="exitAdmin()" class="bg-red-50 text-red-500 px-4 py-2 md:px-6 md:py-3 rounded-xl font-bold hover:bg-red-500 hover:text-white transition text-sm md:text-base">
+                    Salir
+                </button>
+            </div>
+        
+            <nav class="flex overflow-x-auto gap-6 md:gap-10 no-scrollbar border-t border-slate-100 dark:border-white/5 pt-4">
+                <button onclick="switchTab('stats')" class="admin-tab pb-2 font-bold whitespace-nowrap border-b-2 border-transparent transition-all" id="tab-stats">Métricas</button>
+                <button onclick="switchTab('sessions')" class="admin-tab pb-2 font-bold whitespace-nowrap border-b-2 border-transparent transition-all" id="tab-sessions">Sesiones</button>
+                <button onclick="switchTab('sections')" class="admin-tab pb-2 font-bold whitespace-nowrap border-b-2 border-transparent transition-all" id="tab-sections">Secciones</button>
+                <button onclick="switchTab('paths')" class="admin-tab pb-2 font-bold whitespace-nowrap border-b-2 border-transparent transition-all" id="tab-paths">Trayectorias</button>
+            </nav>
+        </header>
+        <main class="flex-1 overflow-y-auto p-4 md:p-12"> 
+            <div id="panel-sessions" class="admin-panel-content hidden space-y-6 md:space-y-8">
+                <div class="flex flex-col lg:flex-row justify-between lg:items-center gap-6">
+                    <h3 class="text-2xl md:text-3xl font-black text-slate-900 dark:text-white">Gestión de Sesiones</h3>
+                    <button onclick="openSessionModal()" class="w-full lg:w-auto bg-cnciBlue text-white px-10 py-4 rounded-2xl font-bold shadow-xl shadow-cnciBlue/20 hover:scale-105 transition">+ Crear Nueva Sesión</button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 bg-slate-50 dark:bg-white/5 p-4 md:p-6 rounded-[2rem] border border-slate-200 dark:border-white/10">
                     <div class="relative lg:col-span-2">
                         <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                        <input type="text" id="admin-search" oninput="renderSessionsTable()" placeholder="Buscar sesión o ponente..." class="w-full pl-12">
+                        <input type="text" id="admin-search" oninput="debounceSearch(true)" placeholder="Buscar sesión o ponente..." class="w-full pl-12 py-3 rounded-xl border-none focus:ring-2 focus:ring-cnciBlue">
                     </div>
-                    <select id="admin-filter-tray" onchange="renderSessionsTable()"><option value="all">Todas</option></select>
-                    <select id="admin-filter-sec" onchange="renderSessionsTable()"><option value="all">Todas</option></select>
-                    <input type="date" id="admin-filter-date" onchange="renderSessionsTable()">
+                    <select id="admin-filter-tray" onchange="renderSessionsTable()" class="py-3 rounded-xl border-none dark:bg-slate-800"><option value="all">Todas las Trayectorias</option></select>
+                    <select id="admin-filter-sec" onchange="renderSessionsTable()" class="py-3 rounded-xl border-none dark:bg-slate-800"><option value="all">Todas las Secciones</option></select>
+                    <input type="date" id="admin-filter-date" onchange="renderSessionsTable()" class="py-3 rounded-xl border-none dark:bg-slate-800">
                 </div>
-                <div class="bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden border border-slate-200 dark:border-white/5">
-                    <table class="w-full text-left">
+        
+                <div class="bg-white dark:bg-slate-900 rounded-[2rem] overflow-x-auto border border-slate-200 dark:border-white/5 shadow-sm">
+                    <table class="w-full text-left min-w-[800px]">
                         <thead class="bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase text-slate-400">
-                            <tr><th class="p-6">Sesión</th><th class="p-6">Trayectoria/Sección</th><th class="p-6">Fecha/Hora (UTC-6)</th><th class="p-6 text-right">Acciones</th></tr>
+                            <tr>
+                                <th class="p-6">Sesión</th>
+                                <th class="p-6">Trayectoria/Sección</th>
+                                <th class="p-6">Fecha/Hora (UTC-6)</th>
+                                <th class="p-6 text-right">Acciones</th>
+                            </tr>
                         </thead>
                         <tbody id="sessions-table-body" class="divide-y divide-slate-100 dark:divide-white/5"></tbody>
                     </table>
                 </div>
             </div>
-
-            <div id="panel-stats" class="admin-panel-content space-y-12">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                    <div class="glass-card p-12 rounded-[3rem] shadow-xl">
-                        <h3 class="font-bold text-xl mb-10">Distribución Trayectorias</h3>
-                        <canvas id="chartTrayectorias" class="max-h-80"></canvas>
+        
+            <div id="panel-stats" class="admin-panel-content space-y-6 md:space-y-12">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-12">
+                    <div class="glass-card p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] shadow-xl border border-white/10">
+                        <h3 class="font-bold text-xl mb-6 md:mb-10 text-slate-800 dark:text-white">Distribución Trayectorias</h3>
+                        <div class="h-64 md:h-80 w-full">
+                            <canvas id="chartTrayectorias"></canvas>
+                        </div>
                     </div>
-                    <div class="glass-card p-12 rounded-[3rem] shadow-xl">
-                        <h3 class="font-bold text-xl mb-10">Distribución Secciones</h3>
-                        <canvas id="chartSecciones" class="max-h-80"></canvas>
+                    <div class="glass-card p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] shadow-xl border border-white/10">
+                        <h3 class="font-bold text-xl mb-6 md:mb-10 text-slate-800 dark:text-white">Distribución Secciones</h3>
+                        <div class="h-64 md:h-80 w-full">
+                            <canvas id="chartSecciones"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
-
+        
             <div id="panel-sections" class="admin-panel-content hidden max-w-4xl mx-auto space-y-8">
-                <div class="flex gap-4"><input type="text" id="new-section-name" class="flex-1 text-lg" placeholder="Nueva sección..."><button onclick="addGeneric('secciones')" class="bg-cnciBlue text-white px-8 rounded-2xl font-bold">Añadir</button></div>
-                <div id="list-sections" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                <div class="flex flex-col md:flex-row gap-4">
+                    <input type="text" id="new-section-name" class="flex-1 text-lg py-4 px-6 rounded-2xl border-none dark:bg-white/5 shadow-inner" placeholder="Nueva sección...">
+                    <button onclick="addGeneric('secciones')" class="bg-cnciBlue text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-cnciBlue/20 active:scale-95 transition">Añadir Sección</button>
+                </div>
+                <div id="list-sections" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
             </div>
-
+        
             <div id="panel-paths" class="admin-panel-content hidden max-w-4xl mx-auto space-y-8">
-                <div class="flex gap-4"><input type="text" id="new-path-name" class="flex-1 text-lg" placeholder="Nueva trayectoria..."><button onclick="addGeneric('trayectorias')" class="bg-cnciOrange text-white px-8 rounded-2xl font-bold">Añadir</button></div>
-                <div id="list-paths" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                <div class="flex flex-col md:flex-row gap-4">
+                    <input type="text" id="new-path-name" class="flex-1 text-lg py-4 px-6 rounded-2xl border-none dark:bg-white/5 shadow-inner" placeholder="Nueva trayectoria...">
+                    <button onclick="addGeneric('trayectorias')" class="bg-cnciOrange text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-cnciOrange/20 active:scale-95 transition">Añadir Trayectoria</button>
+                </div>
+                <div id="list-paths" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
             </div>
+        
         </main>
     </div>
 
-    <!-- MODAL VISOR -->
-    <div id="modal-viewer" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl">
-        <div class="bg-white dark:bg-darkCard w-full max-w-6xl rounded-[3.5rem] overflow-hidden shadow-2xl">
-             <div class="relative h-72 md:h-96">
+    <div id="modal-viewer" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-2 md:p-4 bg-slate-950/90 backdrop-blur-xl">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-6xl h-[90vh] md:h-auto overflow-y-auto rounded-[2rem] md:rounded-[3.5rem] shadow-2xl relative">
+            
+            <button onclick="closeViewer()" class="absolute top-4 right-4 md:top-8 md:right-8 z-50 bg-black/40 hover:bg-red-500 text-white w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full transition-all">
+                <i class="fas fa-times"></i>
+            </button>
+    
+            <div class="relative h-48 md:h-96">
                 <img id="view-img" class="w-full h-full object-cover">
-                <div class="absolute inset-0 bg-gradient-to-t from-white dark:from-darkCard via-transparent"></div>
-                <button onclick="closeViewer()" class="absolute top-8 right-8 bg-black/20 hover:bg-red-500 text-white w-12 h-12 flex items-center justify-center rounded-full transition-all">
-                    <i class="fas fa-times"></i>
-                </button>
-             </div>
-             <div class="px-8 md:px-16 pb-16 -mt-24 relative z-10 grid lg:grid-cols-3 gap-16">
-                 <div class="lg:col-span-2 space-y-8">
-                    <div class="flex flex-wrap gap-3">
-                        <span id="view-tray" class="bg-cnciOrange text-white text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest shadow-lg shadow-cnciOrange/20"></span>
-                        <span id="view-sec" class="bg-cnciBlue text-white text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest shadow-lg shadow-cnciBlue/20"></span>
+                <div class="absolute inset-0 bg-gradient-to-t from-white dark:from-slate-900 via-transparent"></div>
+            </div>
+    
+            <div class="px-6 md:px-16 pb-10 md:pb-16 -mt-12 md:-mt-24 relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-16">
+                
+                <div class="lg:col-span-2 space-y-6 md:space-y-8">
+                    <div class="flex flex-wrap gap-2 md:gap-3">
+                        <span id="view-tray" class="bg-cnciOrange text-white text-[9px] md:text-[10px] font-black px-3 py-1 md:px-4 md:py-1.5 rounded-full uppercase tracking-widest shadow-lg shadow-cnciOrange/20"></span>
+                        <span id="view-sec" class="bg-cnciBlue text-white text-[9px] md:text-[10px] font-black px-3 py-1 md:px-4 md:py-1.5 rounded-full uppercase tracking-widest shadow-lg shadow-cnciBlue/20"></span>
                     </div>
-                    <h2 id="view-title" class="text-4xl md:text-6xl font-black leading-tight tracking-tight"></h2>
-                    <p id="view-desc" class="text-slate-600 dark:text-slate-300 text-xl leading-relaxed"></p>
-                    <div class="flex items-center gap-6 p-8 rounded-3xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10">
-                        <div class="w-14 h-14 bg-cnciBlue text-white rounded-2xl flex items-center justify-center text-xl shadow-xl shadow-cnciBlue/20"><i class="fas fa-user-tie"></i></div>
-                        <div><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ponente</p><span id="view-ponente" class="font-bold text-2xl"></span></div>
-                    </div>
-                 </div>
-                 <div class="flex flex-col justify-end gap-6">
-                    <div class="bg-slate-50 dark:bg-white/5 p-10 rounded-[3rem] border border-slate-100 dark:border-white/10 space-y-6">
-                        <div class="flex items-center gap-5">
-                            <i class="far fa-calendar-alt text-2xl text-cnciOrange"></i>
-                            <div><p class="text-[10px] uppercase font-black text-slate-400">Fecha</p><span id="view-date" class="font-bold text-xl"></span></div>
+    
+                    <h2 id="view-title" class="text-3xl md:text-6xl font-black leading-tight tracking-tight text-slate-900 dark:text-white"></h2>
+                    <p id="view-desc" class="text-slate-600 dark:text-slate-300 text-base md:text-xl leading-relaxed"></p>
+                    
+                    <div class="flex items-center gap-4 md:gap-6 p-5 md:p-8 rounded-3xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10">
+                        <div class="w-10 h-10 md:w-14 md:h-14 bg-cnciBlue text-white rounded-xl md:rounded-2xl flex items-center justify-center text-lg md:text-xl shadow-xl shadow-cnciBlue/20"><i class="fas fa-user-tie"></i></div>
+                        <div>
+                            <p class="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ponente</p>
+                            <span id="view-ponente" class="font-bold text-lg md:text-2xl text-slate-800 dark:text-white"></span>
                         </div>
-                        <div class="flex items-center gap-5">
-                            <i class="far fa-clock text-2xl text-cnciBlue"></i>
+                    </div>
+                </div>
+    
+                <div class="flex flex-col gap-6">
+                    <div class="bg-slate-50 dark:bg-white/5 p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] border border-slate-100 dark:border-white/10 space-y-4 md:space-y-6">
+                        <div class="flex items-center gap-4 md:gap-5">
+                            <i class="far fa-calendar-alt text-xl md:text-2xl text-cnciOrange"></i>
                             <div>
-                                <p class="text-[10px] uppercase font-black text-slate-400">Horario (UTC-6)</p>
-                                <span id="view-time" class="font-bold text-xl"></span>
+                                <p class="text-[9px] md:text-[10px] uppercase font-black text-slate-400">Fecha</p>
+                                <span id="view-date" class="font-bold text-lg md:text-xl text-slate-800 dark:text-white"></span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4 md:gap-5">
+                            <i class="far fa-clock text-xl md:text-2xl text-cnciBlue"></i>
+                            <div>
+                                <p class="text-[9px] md:text-[10px] uppercase font-black text-slate-400">Horario (UTC-6)</p>
+                                <span id="view-time" class="font-bold text-lg md:text-xl text-slate-800 dark:text-white"></span>
                             </div>
                         </div>
                     </div>
-                    <div id="viewer-action-container"></div>
-                 </div>
-             </div>
+                    <div id="viewer-action-container" class="w-full"></div>
+                </div>
+    
+            </div>
         </div>
     </div>
 
@@ -395,7 +438,19 @@
         let currentFilterSec = 'all';
         let calendarDate = new Date();
         let charts = { paths: null, sections: null };
-    
+
+        // === FUNCIÓN DEBOUNCE ÚNICA Y GLOBAL ===
+        let debounceTimer;
+        window.debounceSearch = function(isAdmin = true) {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                if (isAdmin) {
+                    renderSessionsTable(); // Actualiza la tabla del admin
+                } else {
+                    renderHomeContent();   // Actualiza la vista de los alumnos
+                }
+            }, 300);
+        };
         // Colores de trayectoria para el calendario
         const trayColors = {
             'Desarrollo Humano': 'bg-pink-100 text-pink-700 border-pink-400 dark:bg-pink-900/30 dark:text-pink-300',
@@ -447,53 +502,64 @@
             const searchVal = document.getElementById('main-search')?.value.toLowerCase() || "";
             if (!rowContainer) return;
             rowContainer.innerHTML = '';
-
+        
             const filtered = data.sessions.filter(s => {
                 const matchesSearch = s.title.toLowerCase().includes(searchVal) || s.ponente.toLowerCase().includes(searchVal);
                 return matchesSearch && (currentFilterTray === 'all' || s.trayectoria === currentFilterTray) && (currentFilterSec === 'all' || s.seccion === currentFilterSec);
             });
-
-            // Featured Hero
+        
+            // --- SECCIÓN HERO (BANNER) OPTIMIZADA ---
             const featured = filtered.find(s => getLiveStatus(s) === 'live') || filtered.find(s => getLiveStatus(s) === 'upcoming') || data.sessions[0];
             if (featured && !searchVal) {
                 const status = getLiveStatus(featured);
-                document.getElementById('banner-container').innerHTML = `<img src="${featured.img}" class="w-full h-full object-cover">`;
+                
+                // Ajustamos la altura del banner dinámicamente: h-[40vh] en móvil, h-[600px] en PC
+                const bannerCont = document.getElementById('banner-container');
+                bannerCont.className = "relative h-[40vh] md:h-[600px] overflow-hidden rounded-[2.5rem] md:rounded-[4rem]";
+                bannerCont.innerHTML = `<img src="${featured.img}" class="w-full h-full object-cover">`;
+                
                 document.getElementById('banner-title').textContent = featured.title;
                 document.getElementById('banner-desc').textContent = featured.desc;
                 document.getElementById('banner-meta-time').textContent = `${featured.date} • ${featured.time}`;
+                
                 document.getElementById('banner-badge').innerHTML = status === 'live' 
                     ? `<div class="bg-red-600 animate-pulse text-white text-[10px] font-black px-4 py-2 rounded-full uppercase mb-6 inline-flex items-center gap-2 shadow-xl"><span class="w-2 h-2 bg-white rounded-full"></span> En vivo ahora</div>`
                     : `<div class="bg-cnciOrange text-white text-[10px] font-black px-4 py-2 rounded-full uppercase mb-6 inline-block">Próximamente</div>`;
                 
                 document.getElementById('hero-action-container').innerHTML = status === 'live' 
-                    ? `<a href="${featured.link}" target="_blank" class="px-10 py-5 bg-cnciBlue text-white rounded-2xl font-black text-lg shadow-2xl shadow-cnciBlue/40 hover:scale-105 transition inline-flex items-center gap-4"><i class="fas fa-play"></i> Ingresar</a>`
-                    : `<button onclick='showSession(${JSON.stringify(featured).replace(/'/g, "&#39;")})' class="px-10 py-5 bg-white text-slate-900 rounded-2xl font-black text-lg shadow-2xl hover:bg-cnciBlue hover:text-white transition inline-flex items-center gap-4">Ver más</button>`;
+                    ? `<a href="${featured.link}" target="_blank" class="px-8 py-4 md:px-10 md:py-5 bg-cnciBlue text-white rounded-2xl font-black text-base md:text-lg shadow-2xl shadow-cnciBlue/40 hover:scale-105 transition inline-flex items-center gap-4"><i class="fas fa-play"></i> Ingresar</a>`
+                    : `<button onclick='showSession(${JSON.stringify(featured).replace(/'/g, "&#39;")})' class="px-8 py-4 md:px-10 md:py-5 bg-white text-slate-900 rounded-2xl font-black text-base md:text-lg shadow-2xl hover:bg-cnciBlue hover:text-white transition inline-flex items-center gap-4">Ver más</button>`;
             }
-
+        
+            // --- RENDERIZADO DE FILAS RESPONSIVAS ---
             data.secciones.filter(sc => currentFilterSec === 'all' || sc.name === currentFilterSec).forEach((sec, idx) => {
                 const sessions = filtered.filter(s => s.seccion === sec.name && getLiveStatus(s) !== 'past');
                 if (sessions.length > 0) {
                     const rowId = `row-${idx}`;
                     rowContainer.innerHTML += `
-                        <div class="space-y-10 relative">
-                            <h3 class="text-3xl font-black uppercase tracking-tighter flex items-center gap-4"><span class="w-2 h-10 bg-cnciBlue rounded-full"></span> ${sec.name}</h3>
+                        <div class="space-y-6 md:space-y-10 relative">
+                            <h3 class="text-2xl md:text-3xl font-black uppercase tracking-tighter flex items-center gap-3 md:gap-4">
+                                <span class="w-1.5 h-8 md:w-2 md:h-10 bg-cnciBlue rounded-full"></span> ${sec.name}
+                            </h3>
                             <div class="row-wrapper relative group/row">
-                                <button onclick="scrollRow('${rowId}', -1)" class="nav-btn left"><i class="fas fa-chevron-left"></i></button>
-                                <div id="${rowId}" class="netflix-row gap-8 pb-10">
+                                <button onclick="scrollRow('${rowId}', -1)" class="nav-btn left hidden md:flex"><i class="fas fa-chevron-left"></i></button>
+                                
+                                <div id="${rowId}" class="netflix-row gap-4 md:gap-8 pb-6 md:pb-10 snap-x snap-mandatory">
                                     ${sessions.map(s => `
-                                        <div class="session-card-wrapper min-w-[300px] md:min-w-[420px] group session-card">
-                                            <div onclick='showSession(${JSON.stringify(s).replace(/'/g, "&#39;")})' class="relative h-64 md:h-72 rounded-[2.5rem] overflow-hidden border border-slate-200 dark:border-white/10 shadow-lg cursor-pointer transition-all duration-500 group-hover:-translate-y-4 group-hover:shadow-2xl">
+                                        <div class="session-card-wrapper min-w-[85vw] md:min-w-[420px] snap-start group session-card">
+                                            <div onclick='showSession(${JSON.stringify(s).replace(/'/g, "&#39;")})' class="relative h-56 md:h-72 rounded-[2rem] md:rounded-[2.5rem] overflow-hidden border border-slate-200 dark:border-white/10 shadow-lg cursor-pointer transition-all duration-500 hover:-translate-y-2 md:group-hover:-translate-y-4">
                                                 <img src="${s.img}" class="w-full h-full object-cover transition duration-700">
                                                 <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
-                                                <div class="absolute bottom-6 left-8 right-8">
-                                                    <p class="text-[9px] font-black text-cnciOrange uppercase tracking-[0.2em] mb-1">${s.trayectoria}</p>
-                                                    <h4 class="font-bold text-xl text-white leading-tight">${s.title}</h4>
-                                                    <p class="text-[9px] text-slate-400 mt-2 font-bold uppercase tracking-widest">${s.time} (UTC-6)</p>
+                                                <div class="absolute bottom-5 left-6 right-6 md:bottom-6 md:left-8 md:right-8">
+                                                    <p class="text-[8px] md:text-[9px] font-black text-cnciOrange uppercase tracking-[0.2em] mb-1">${s.trayectoria}</p>
+                                                    <h4 class="font-bold text-lg md:text-xl text-white leading-tight">${s.title}</h4>
+                                                    <p class="text-[8px] md:text-[9px] text-slate-400 mt-2 font-bold uppercase tracking-widest">${s.time} (UTC-6)</p>
                                                 </div>
                                             </div>
                                         </div>`).join('')}
                                 </div>
-                                <button onclick="scrollRow('${rowId}', 1)" class="nav-btn right"><i class="fas fa-chevron-right"></i></button>
+                                
+                                <button onclick="scrollRow('${rowId}', 1)" class="nav-btn right hidden md:flex"><i class="fas fa-chevron-right"></i></button>
                             </div>
                         </div>`;
                 }
@@ -540,6 +606,8 @@
 
         window.showSession = (s) => {
             const status = getLiveStatus(s);
+            
+            // Asignación de datos
             document.getElementById('view-img').src = s.img;
             document.getElementById('view-title').textContent = s.title;
             document.getElementById('view-desc').textContent = s.desc;
@@ -551,24 +619,34 @@
             
             const btnContainer = document.getElementById('viewer-action-container');
         
-            // CAMBIO QUIRÚRGICO AQUÍ:
-            // Unificamos el botón de acceso y la duración en un solo bloque sin condicionales de estado
+            // Diseño responsivo para el botón y duración
+            // En móviles gap-3 y py-4, en escritorio crecen un poco más
             btnContainer.innerHTML = `
-                <div class="flex flex-col gap-4 w-full">
-                    <a href="${s.link}" target="_blank" class="w-full py-6 ${status === 'live' ? 'bg-red-600 animate-pulse' : 'bg-cnciBlue'} text-white rounded-3xl font-black text-center shadow-2xl transition flex items-center justify-center gap-4 hover:scale-105 active:scale-95">
-                        <i class="fas fa-external-link-alt"></i> ${status === 'live' ? 'UNIRME AHORA' : 'ACCEDER A LA SESIÓN'}
+                <div class="flex flex-col gap-3 md:gap-4 w-full">
+                    <a href="${s.link}" target="_blank" 
+                       class="w-full py-4 md:py-6 ${status === 'live' ? 'bg-red-600 animate-pulse' : 'bg-cnciBlue'} 
+                       text-white rounded-2xl md:rounded-3xl font-black text-center text-sm md:text-base 
+                       shadow-2xl transition flex items-center justify-center gap-4 hover:scale-[1.02] active:scale-95">
+                        <i class="fas fa-external-link-alt"></i> 
+                        ${status === 'live' ? 'UNIRME AHORA' : 'ACCEDER A LA SESIÓN'}
                     </a>
-                    <div class="p-6 bg-slate-100 dark:bg-white/5 rounded-3xl text-center flex flex-col items-center gap-1">
-                        <span class="text-[10px] uppercase font-black text-slate-400">Duración Estimada</span>
-                        <span class="font-bold text-xl text-slate-700 dark:text-slate-200">${s.duration || '60 mins'}</span>
+                    <div class="p-4 md:p-6 bg-slate-100 dark:bg-white/5 rounded-2xl md:rounded-3xl text-center flex flex-col items-center gap-1">
+                        <span class="text-[9px] md:text-[10px] uppercase font-black text-slate-400">Duración Estimada</span>
+                        <span class="font-bold text-lg md:text-xl text-slate-700 dark:text-slate-200">${s.duration || '60 mins'}</span>
                     </div>
                 </div>
             `;
         
             document.getElementById('modal-viewer').classList.remove('hidden');
+            // Bloqueamos el scroll del fondo cuando el modal esté abierto (mejor para móviles)
+            document.body.style.overflow = 'hidden';
         };
       
-        window.closeViewer = () => document.getElementById('modal-viewer').classList.add('hidden');
+        window.closeViewer = () => {
+            document.getElementById('modal-viewer').classList.add('hidden');
+            // Devolvemos el scroll al cuerpo de la página
+            document.body.style.overflow = 'auto';
+        };
         window.toggleDarkMode = () => { document.documentElement.classList.toggle('dark'); document.getElementById('theme-icon').className = document.documentElement.classList.contains('dark') ? 'fas fa-sun' : 'fas fa-moon'; };
         window.scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
         window.scrollToSection = (id) => { const el = document.getElementById(id); if(el) window.scrollTo({ top: el.offsetTop - 100, behavior: 'smooth' }); };
@@ -627,7 +705,11 @@
         
             const fileInput = document.getElementById('swal-file-input');
             const statusEl = document.getElementById('upload-status');
-            const urlInput = document.getElementById('swal-img');
+            const urlInput = document.querySelector('.swal2-container #swal-img'); 
+            if (!urlInput) {
+                console.error("No se encontró el campo de URL");
+                return;
+            }
             
             if (!fileInput.files || !fileInput.files[0]) return;
             
