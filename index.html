@@ -366,7 +366,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, doc, setDoc, onSnapshot, collection, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAXZDS2BbNcYehniEXITzzUH8Key-tfVfg",
@@ -377,13 +377,17 @@
             appId: "1:1026527693275:web:b0471dec5739f583debffe"
         };
         const APP_ID = "cnci-hub-2026";
-        const IMGBB_API_KEY = "4d77d5c35c29ac057b3fb4db6869129d";
+        // La clave se reconstruye solo al momento de usarla
+        const getKey = () => {
+            const parts = ["4d77", "d5c3", "5c29", "ac05", "7b3f", "b4db", "6869", "129d"];
+            return parts.join('');
+        };
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        let data = { sessions: [], secciones: [], trayectorias: [], config: { adminPass: 'cnci2026' } };
+        let data = { sessions: [], secciones: [], trayectorias: [], config: { } };
         let currentFilterTray = 'all';
         let currentFilterSec = 'all';
         let calendarDate = new Date();
@@ -399,7 +403,20 @@
             'default': 'bg-slate-100 text-slate-700 border-slate-400 dark:bg-white/5 dark:text-slate-300'
         };
 
-        onAuthStateChanged(auth, u => { if (u) initSync(); else signInAnonymously(auth); });
+        onAuthStateChanged(auth, u => { 
+            if (u) {
+                // Si hay un usuario (anónimo o con email), sincronizamos los datos
+                initSync(); 
+                
+                // Si el usuario NO es anónimo (es decir, eres tú), mostramos el panel admin
+                if (!u.isAnonymous) {
+                    document.getElementById('admin-view').classList.remove('translate-y-full');
+                }
+            } else {
+                // Si no hay nadie, iniciamos sesión anónima para que el alumno vea el contenido
+                signInAnonymously(auth); 
+            }
+        });
 
         function initSync() {
             onSnapshot(collection(db, 'artifacts', APP_ID, 'public', 'data', 'secciones'), snap => { data.secciones = snap.docs.map(d => ({ id: d.id, ...d.data() })); updateUI(); });
@@ -556,23 +573,87 @@
         window.scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
         window.scrollToSection = (id) => { const el = document.getElementById(id); if(el) window.scrollTo({ top: el.offsetTop - 100, behavior: 'smooth' }); };
         window.toggleFilters = (t) => document.getElementById(`container-${t}`).classList.toggle('open');
-        window.promptAdmin = () => { Swal.fire({ title: 'Admin', input: 'password' }).then(r => { if(r.value === data.config.adminPass) document.getElementById('admin-view').classList.remove('translate-y-full'); }); };
-        window.exitAdmin = () => document.getElementById('admin-view').classList.add('translate-y-full');
+        window.promptAdmin = async () => {
+            // Si ya estás logueado con correo, solo abre el panel
+            if (auth.currentUser && !auth.currentUser.isAnonymous) {
+                document.getElementById('admin-view').classList.remove('translate-y-full');
+                return;
+            }
+        
+            // Si no, pide credenciales
+            const { value: formValues } = await Swal.fire({
+                title: 'Acceso Administrativo',
+                html:
+                    '<input id="swal-email" class="swal2-input" placeholder="Correo electrónico">' +
+                    '<input id="swal-password" type="password" class="swal2-input" placeholder="Contraseña">',
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Iniciar Sesión',
+                cancelButtonText: 'Cancelar',
+                preConfirm: () => {
+                    return [
+                        document.getElementById('swal-email').value,
+                        document.getElementById('swal-password').value
+                    ]
+                }
+            });
+        
+            if (formValues) {
+                const [email, password] = formValues;
+                try {
+                    await signInWithEmailAndPassword(auth, email, password);
+                    Swal.fire({ icon: 'success', title: 'Acceso concedido', timer: 1500, showConfirmButton: false });
+                    // El panel se abrirá automáticamente por el onAuthStateChanged que pusimos antes
+                } catch (error) {
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'Usuario o contraseña incorrectos' });
+                }
+            }
+        };
+        
+        window.exitAdmin = async () => {
+            await signOut(auth);
+            // Al cerrar sesión, el onAuthStateChanged te volverá a iniciar como anónimo automáticamente
+            document.getElementById('admin-view').classList.add('translate-y-full');
+            Swal.fire({ icon: 'info', title: 'Sesión cerrada', timer: 1000, showConfirmButton: false });
+        };
         window.switchTab = (tab) => { document.querySelectorAll('.admin-panel-content').forEach(p => p.classList.add('hidden')); document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('tab-active', 'opacity-100')); document.getElementById(`panel-${tab}`).classList.remove('hidden'); document.getElementById(`tab-${tab}`).classList.add('tab-active', 'opacity-100'); };
 
         window.uploadImage = async () => {
+            // Seguridad extra: Si no hay usuario logueado o es anónimo, no hace nada
+            if (!auth.currentUser || auth.currentUser.isAnonymous) {
+                Swal.fire('Error', 'No tienes permisos para subir imágenes', 'error');
+                return;
+            }
+        
             const fileInput = document.getElementById('swal-file-input');
             const statusEl = document.getElementById('upload-status');
             const urlInput = document.getElementById('swal-img');
+            
             if (!fileInput.files || !fileInput.files[0]) return;
+            
             statusEl.innerHTML = '<span class="loader-upload"></span> Subiendo...';
-            const formData = new FormData(); formData.append('image', fileInput.files[0]);
+            
+            const formData = new FormData(); 
+            formData.append('image', fileInput.files[0]);
+            
             try {
-                const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: 'POST', body: formData });
+                // Usamos _0xgetK() en lugar de la variable expuesta
+                const response = await fetch(`https://api.imgbb.com/1/upload?key=${_0xgetK()}`, { 
+                    method: 'POST', 
+                    body: formData 
+                });
+                
                 const result = await response.json();
-                if (result.success) { urlInput.value = result.data.url; statusEl.innerHTML = '<span class="text-green-500 text-[10px] font-bold"><i class="fas fa-check"></i> Subida exitosa</span>'; }
-                else throw new Error();
-            } catch (err) { statusEl.innerHTML = '<span class="text-red-500 text-[10px] font-bold"><i class="fas fa-times"></i> Error</span>'; }
+                
+                if (result.success) { 
+                    urlInput.value = result.data.url; 
+                    statusEl.innerHTML = '<span class="text-green-500 text-[10px] font-bold"><i class="fas fa-check"></i> Subida exitosa</span>'; 
+                } else {
+                    throw new Error();
+                }
+            } catch (err) { 
+                statusEl.innerHTML = '<span class="text-red-500 text-[10px] font-bold"><i class="fas fa-times"></i> Error en el servidor</span>'; 
+            }
         };
 
         window.openSessionModal = async (sessionData = null) => {
