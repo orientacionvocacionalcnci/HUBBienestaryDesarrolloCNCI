@@ -663,7 +663,7 @@
                     </a>
                     <div class="p-4 md:p-6 bg-slate-100 dark:bg-white/5 rounded-2xl md:rounded-3xl text-center flex flex-col items-center gap-1">
                         <span class="text-[9px] md:text-[10px] uppercase font-black text-slate-400">Duración Estimada</span>
-                        <span class="font-bold text-lg md:text-xl text-slate-700 dark:text-slate-200">${s.duration || '60 mins'}</span>
+                        <span class="font-bold text-lg md:text-xl text-slate-700 dark:text-slate-200">${s.duration ? s.duration + ' mins' : '60 mins'}</span>
                     </div>
                 </div>
             `;
