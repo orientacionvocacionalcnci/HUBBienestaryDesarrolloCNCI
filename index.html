@@ -148,6 +148,20 @@
             -ms-overflow-style: none; /* IE y Edge */
             scrollbar-width: none;    /* Firefox */
         }
+        /* --- PEGA AQUÍ EL TRUCO DEL SCRIM --- */
+        .scrim-protection {
+            background: linear-gradient(
+                to top,
+                rgba(0, 0, 0, 0.9) 0%,
+                rgba(0, 0, 0, 0.6) 30%,
+                rgba(0, 0, 0, 0.2) 60%,
+                transparent 100%
+            ) !important;
+        }
+
+        .text-shadow-strong {
+            text-shadow: 0 2px 15px rgba(0, 0, 0, 0.8);
+        }
     </style>
     <!-- Favicon estándar para la mayoría de los navegadores -->
     <link rel="icon" type="image/x-icon" href="favicon.ico">
@@ -507,28 +521,45 @@
                 const matchesSearch = s.title.toLowerCase().includes(searchVal) || s.ponente.toLowerCase().includes(searchVal);
                 return matchesSearch && (currentFilterTray === 'all' || s.trayectoria === currentFilterTray) && (currentFilterSec === 'all' || s.seccion === currentFilterSec);
             });
-        
-            // --- SECCIÓN HERO (BANNER) OPTIMIZADA ---
+
+            // --- SECCIÓN HERO (BANNER) OPTIMIZADA CON SCRIM ---
             const featured = filtered.find(s => getLiveStatus(s) === 'live') || filtered.find(s => getLiveStatus(s) === 'upcoming') || data.sessions[0];
+            
             if (featured && !searchVal) {
                 const status = getLiveStatus(featured);
                 
-                // Ajustamos la altura del banner dinámicamente: h-[40vh] en móvil, h-[600px] en PC
+                // 1. Aplicar el contenedor con el Scrim
                 const bannerCont = document.getElementById('banner-container');
-                bannerCont.className = "relative h-[40vh] md:h-[600px] overflow-hidden rounded-[2.5rem] md:rounded-[4rem]";
-                bannerCont.innerHTML = `<img src="${featured.img}" class="w-full h-full object-cover">`;
+                bannerCont.className = "relative h-[45vh] md:h-[650px] overflow-hidden rounded-[2.5rem] md:rounded-[4rem] shadow-2xl";
+                bannerCont.innerHTML = `
+                    <img src="${featured.img}" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 scrim-protection"></div>
+                `;
                 
-                document.getElementById('banner-title').textContent = featured.title;
-                document.getElementById('banner-desc').textContent = featured.desc;
-                document.getElementById('banner-meta-time').textContent = `${featured.date} • ${featured.time}`;
+                // 2. Título: Forzamos blanco y sombra (text-white y text-shadow-strong)
+                const titleEl = document.getElementById('banner-title');
+                titleEl.textContent = featured.title;
+                titleEl.className = "text-4xl md:text-7xl font-black mb-4 leading-tight text-white text-shadow-strong relative z-10";
+            
+                // 3. Descripción: Color claro y sombra
+                const descEl = document.getElementById('banner-desc');
+                descEl.textContent = featured.desc;
+                descEl.className = "text-slate-100 text-lg md:text-2xl line-clamp-2 max-w-2xl font-medium mb-10 opacity-95 text-shadow-strong relative z-10";
+            
+                // 4. Meta Info (Fecha/Hora): Color blanco
+                const timeEl = document.getElementById('banner-meta-time');
+                timeEl.textContent = `${featured.date} • ${featured.time}`;
+                timeEl.className = "flex items-center gap-4 mb-6 text-white font-bold text-sm uppercase tracking-widest text-shadow-strong relative z-10";
                 
+                // 5. Badge (Vivo/Próximamente)
                 document.getElementById('banner-badge').innerHTML = status === 'live' 
-                    ? `<div class="bg-red-600 animate-pulse text-white text-[10px] font-black px-4 py-2 rounded-full uppercase mb-6 inline-flex items-center gap-2 shadow-xl"><span class="w-2 h-2 bg-white rounded-full"></span> En vivo ahora</div>`
-                    : `<div class="bg-cnciOrange text-white text-[10px] font-black px-4 py-2 rounded-full uppercase mb-6 inline-block">Próximamente</div>`;
+                    ? `<div class="bg-red-600 animate-pulse text-white text-[10px] font-black px-4 py-2 rounded-full uppercase mb-6 inline-flex items-center gap-2 shadow-xl relative z-10"><span class="w-2 h-2 bg-white rounded-full"></span> En vivo ahora</div>`
+                    : `<div class="bg-cnciOrange text-white text-[10px] font-black px-4 py-2 rounded-full uppercase mb-6 inline-block relative z-10">Próximamente</div>`;
                 
+                // 6. Botones de acción
                 document.getElementById('hero-action-container').innerHTML = status === 'live' 
-                    ? `<a href="${featured.link}" target="_blank" class="px-8 py-4 md:px-10 md:py-5 bg-cnciBlue text-white rounded-2xl font-black text-base md:text-lg shadow-2xl shadow-cnciBlue/40 hover:scale-105 transition inline-flex items-center gap-4"><i class="fas fa-play"></i> Ingresar</a>`
-                    : `<button onclick='showSession(${JSON.stringify(featured).replace(/'/g, "&#39;")})' class="px-8 py-4 md:px-10 md:py-5 bg-white text-slate-900 rounded-2xl font-black text-base md:text-lg shadow-2xl hover:bg-cnciBlue hover:text-white transition inline-flex items-center gap-4">Ver más</button>`;
+                    ? `<a href="${featured.link}" target="_blank" class="px-8 py-4 md:px-10 md:py-5 bg-cnciBlue text-white rounded-2xl font-black text-base md:text-lg shadow-2xl shadow-cnciBlue/40 hover:scale-105 transition inline-flex items-center gap-4 relative z-10"><i class="fas fa-play"></i> Ingresar</a>`
+                    : `<button onclick='showSession(${JSON.stringify(featured).replace(/'/g, "&#39;")})' class="px-8 py-4 md:px-10 md:py-5 bg-white text-slate-900 rounded-2xl font-black text-base md:text-lg shadow-2xl hover:bg-cnciBlue hover:text-white transition inline-flex items-center gap-4 relative z-10">Ver más</button>`;
             }
         
             // --- RENDERIZADO DE FILAS RESPONSIVAS ---
